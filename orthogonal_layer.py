@@ -49,5 +49,4 @@ class Orthogonal(nn.Module):
         self.orthogonal_kernel.grad.data.zero_()
 
     def forward(self, input):
-        print((self.orthogonal_kernel.matmul(self.orthogonal_kernel.t()) - torch.eye(256)).norm())
         return input.matmul(self.orthogonal_kernel[:self.input_size, :self.output_size])
