@@ -38,7 +38,7 @@ And we are good to go! We now have a layer with orthogonal constraints. Note tha
     python 3_timit.py -m exact --init henaff --hidden_size 425 --lr 7e-4 --lr_orth 7e-5
 
 ### A note on the TIMIT experiment
-The TIMIT dataset is not free, but most universities and many other institutions have access to it.
+The TIMIT dataset is not open, but most universities and many other institutions have access to it.
 
 To preprocess the data of the TIMIT dataset, we used the tools provided by Wisdom on the repository:
 
