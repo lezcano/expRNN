@@ -8,9 +8,9 @@ Just copy the four main files into your code and start using the class `ExpRNN` 
 
 ## Add orthogonal constraints to layers
 
-We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We show an example on `exp_linear.py`. This could also be applied to other kinds of layers like CNNs.
+We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We show an example in `orthogonal_layer.py`. This could also be applied to other kinds of layers like CNNs.
 
-Once we have an orthogonal layer like that defined in `exp_linear.py`, in the training code we just have to separate the parameters into two optimizers. A good rule of thumb is having the non-orthogonal learning rate 10 times larger than the orthogonal learning rate.
+Once we have an `Orthogonal` layer like the one defined in `orthogonal_layer.py`, in the training code we just have to separate the parameters into two optimizers. A good rule of thumb is having the non-orthogonal learning rate 10 times larger than the orthogonal learning rate.
 
     lr = # Some learning rate
     optim = torch.optim.RMSprop((param for param in model.parameters()
@@ -21,7 +21,9 @@ Then, in the training loop, we just add the following line after doing `loss.bac
 
     model.orth_layer.orthogonal_step(optim_orth)
 
-And we are good to go! We now have a layer with orthogonal constraints. Note that if you have more than one orthogonal layer, you have to call the `orthogonal_step` function of every layer with `optim_orth` and add all the corresponding parameters to `optim_orth`.
+And we are good to go! We now have a layer with orthogonal constraints. 
+
+Note that if you have more than one orthogonal layer, you have to call the `orthogonal_step` function of every layer with `optim_orth` and add all the corresponding parameters to `optim_orth`.
 
 ## Commands to Reproduce the Experiments
 
