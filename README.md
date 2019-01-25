@@ -1,6 +1,6 @@
 # ExpRNN: Cheap Orthogonal Constraints
 
-Code and Experiments of the paper "Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group"
+Code and Experiments of the paper "[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxiv]"
 
 ## Use expRNN in your code
 
@@ -73,3 +73,14 @@ After that, modify the file `timit_prediction.py` and add the following lines af
     np.save("eval_z.npy",  np.transpose(eval_z, [1, 0, 2]))
 
 Finally feed this data to the neural network (cf. lines , 105-116 in `3_timit.py` in this repository).
+
+## Cite this work
+
+    @article{lezcano2019cheap,
+      title={Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group},
+      author={Lezcano-Casado, Mario and Mart{\'i}nez-Rubio, David},
+      journal={arXiv preprint arXiv:1901.08428},
+      year={2019}
+    }
+
+[arxiv]: https://arxiv.org/abs/1901.08428
