@@ -72,7 +72,7 @@ After that, modify the file `timit_prediction.py` and add the following lines af
     np.save("eval_x.npy",  np.transpose(eval_xdata, [1, 0, 2]))
     np.save("eval_z.npy",  np.transpose(eval_z, [1, 0, 2]))
 
-Finally feed this data to the neural network (cf. lines , 105-116 in `3_timit.py` in this repository).
+Execute it, and feed the 9 generated files to the third experiment (cf. lines , 105-116 in `3_timit.py` in this repository).
 
 ## Cite this work
 
