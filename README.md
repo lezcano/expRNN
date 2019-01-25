@@ -6,7 +6,7 @@ Code and Experiments of the paper "[Cheap Orthogonal Constraints in Neural Netwo
 
 Just copy the four main files into your code and start using the class `ExpRNN` included in the file `exprnn.py`.
 
-## Add orthogonal constraints to layers
+## Add orthogonal constraints to your code
 
 We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We show an example in `orthogonal_layer.py`. This could also be applied to other kinds of layers like CNNs.
 
