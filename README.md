@@ -25,9 +25,9 @@ And we are good to go! We have a layer with orthogonal constraints!
 
 Note that if you have more than one orthogonal layer, you have to call the `orthogonal_step` function of every layer with `optim_orth` and add all the corresponding parameters to `optim_orth`. This can easily be achieved with the `apply` function present in the `torch.nn.Module` objects, defining a function that performs the step.
 
-    def orth_step(mod, optim_orth):
+    def orth_step(mod, optimizer):
         if type(mod) is Orthogonal:
-            mod.orthogonal_step(optim_orth)
+            mod.orthogonal_step(optimizer)
 
 and then, applying it after `loss.backward()`:
 
