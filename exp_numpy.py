@@ -587,7 +587,7 @@ def _expm(A, use_exact_onenorm):
         # Nilpotent special case
         s = 0
     else:
-        s = max(int(np.ceil(np.log2(eta_5 / theta_13))), 0)
+        s = max(int(torch.ceil(torch.log2(eta_5 / theta_13))), 0)
     s = s + _ell(2**-s * h.A, 13)
     U, V = h.pade13_scaled(s)
     X = _solve_P_Q(U, V, structure=structure)
