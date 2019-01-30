@@ -11,10 +11,8 @@ def cayley_init(n):
     return create_diag(s, n)
 
 def create_diag(s, n):
-    diag = np.zeros(n)
+    diag = np.zeros(n-1)
     diag[::2] = s
-    if n % 2 == 0:
-        diag = diag[:-1]
     A_init = np.diag(diag, k=1)
     A_init = A_init - A_init.T
     return A_init.astype(np.float32)
