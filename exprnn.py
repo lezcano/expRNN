@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 
-from exp_numpy import expm, expm_frechet
-from initialization import henaff_init
+from exp_numpy32 import expm, expm_frechet, expm_skew
 
 
 class modrelu(nn.Module):
@@ -25,86 +24,113 @@ class modrelu(nn.Module):
         return phase * magnitude
 
 
-class ExpRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, nonlinearity=modrelu, exponential="exact", skew_initializer=henaff_init):
-        super(ExpRNN, self).__init__()
+def orthogonal_step(orthogonal_optimizer):
+    def _orthogonal_step(mod):
+        if isinstance(mod, Orthogonal):
+            mod.orthogonal_step(orthogonal_optimizer)
+    return _orthogonal_step
+
+
+def get_parameters(model):
+    """We get the orthogonal params first and then the others"""
+
+    orth_param = []
+    log_orth_param = []
+
+    def get_orth_params(mod):
+        nonlocal orth_param
+        nonlocal log_orth_param
+        if isinstance(mod, Orthogonal):
+            orth_param.append(mod.orthogonal_kernel)
+            log_orth_param.append(mod.log_orthogonal_kernel)
+
+    def not_in(elem, l):
+        return all(elem is not x for x in l)
+
+    # Note that orthogonal params are not included in any of the sets, as they are not optimized
+    # directly, but just through the log_orth_params
+    model.apply(get_orth_params)
+    non_orth_param = (param for param in model.parameters() if not_in(param, orth_param) and not_in(param, log_orth_param))
+    return non_orth_param, log_orth_param
+
+
+class Orthogonal(nn.Module):
+    """
+    Implements a non-square linear with orthogonal colums
+    """
+    def __init__(self, input_size, output_size, skew_initializer):
+        super(Orthogonal, self).__init__()
         self.input_size = input_size
-        self.hidden_size = hidden_size
-        # Can be optimised for size but it's not really worth it in most applications
-        self.log_recurrent_kernel = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-        self.recurrent_kernel = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-        self.input_kernel = nn.Linear(self.input_size, self.hidden_size, bias=False)
+        self.output_size = output_size
+        self.max_size = max(self.input_size, self.output_size)
+        self.log_orthogonal_kernel = nn.Parameter(torch.Tensor(self.max_size, self.max_size))
+        self.orthogonal_kernel = nn.Parameter(torch.Tensor(self.max_size, self.max_size))
         self.skew_initializer = skew_initializer
 
-        self.exact = exponential == "exact"
-        if self.exact:
-            self.exp = expm
-        else:
-            self.exp = exponential
-        if nonlinearity:
-            try:
-                self.nonlinearity = nonlinearity(hidden_size)
-            except TypeError:
-                self.nonlinearity = nonlinearity
-        else:
-            self.nonlinearity = None
         self.reset_parameters()
 
+    def reset_parameters(self):
+        self.log_orthogonal_kernel.data = \
+                torch.as_tensor(self.skew_initializer(self.max_size),
+                        dtype=self.log_orthogonal_kernel.dtype,
+                        device=self.log_orthogonal_kernel.device)
+        self.orthogonal_kernel.data = self._B(gradients=False).data
+
     def _A(self, gradients):
-        A = self.log_recurrent_kernel
+        A = self.log_orthogonal_kernel
         if not gradients:
             A = A.data
         A = A.triu(diagonal=1)
         return A - A.t()
 
     def _B(self, gradients):
-        return self.exp(self._A(gradients))
-
-    def reset_parameters(self):
-        self.log_recurrent_kernel.data = \
-                torch.as_tensor(self.skew_initializer(self.hidden_size),
-                        dtype=self.log_recurrent_kernel.dtype,
-                        device=self.log_recurrent_kernel.device)
-        self.recurrent_kernel.data = self._B(gradients=False)
-        nn.init.kaiming_normal_(self.input_kernel.weight.data, nonlinearity="relu")
+        # This could be the Cayley approximant or other parametrization
+        # when implementing other parametrizations of SO(n)
+        return expm_skew(self._A(gradients))
 
     def orthogonal_step(self, optim):
-        if self.exact:
-            A = self._A(gradients=False)
-            B = self.recurrent_kernel.data
-            G = self.recurrent_kernel.grad.data
-            BtG = B.t().mm(G)
-            grad = 0.5*(BtG - BtG.t())
-            frechet_deriv = B.mm(expm_frechet(-A, grad))
+        orth_param = self._B(gradients=True)
+        self.log_orthogonal_kernel.grad = \
+            torch.autograd.grad([orth_param], self.log_orthogonal_kernel,
+grad_outputs=(self.orthogonal_kernel.grad,))[0]
 
-            # Account for the triangular representation of the skew-symmetric matrix
-            # The gradient with respect to the parameter x_i,j is the upper part of the triangular matrix
-            # minus the lower part of the triangular matrix.
-            # The gradient needn't be triangular, but we make it triangular for consistency
-            self.log_recurrent_kernel.grad = (frechet_deriv - frechet_deriv.t()).triu(diagonal=1)
-        else:
-            orth_param = self._B(gradients=True)
-            self.log_recurrent_kernel.grad = \
-                torch.autograd.grad([orth_param], self.log_recurrent_kernel,
-                                    grad_outputs=(self.recurrent_kernel.grad,))[0]
         optim.step()
-        self.recurrent_kernel.data = self._B(gradients=False)
-        self.recurrent_kernel.grad.data.zero_()
+        self.orthogonal_kernel.data = self._B(gradients=False)
+        self.orthogonal_kernel.grad.data.zero_()
 
-    def forward(self, input, hidden=None):
-        if hidden is None:
-            hidden = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
+    def forward(self, input):
+        B = self.orthogonal_kernel
+        if self.input_size != self.output_size:
+            B = B[:self.input_size, :self.output_size]
+        out = input.matmul(B)
+        return out
 
+
+
+class ExpRNN(torch.jit.ScriptModule):
+    def __init__(self, input_size, hidden_size, skew_initializer):
+        super(ExpRNN, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.recurrent_kernel = Orthogonal(hidden_size, hidden_size, skew_initializer)
+        self.input_kernel = nn.Linear(in_features=self.input_size, out_features=self.hidden_size, bias=False)
+        self.nonlinearity = modrelu(hidden_size)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.kaiming_normal_(self.input_kernel.weight.data, nonlinearity="relu")
+
+    def default_hidden(self, input):
+        return input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
+
+    @torch.jit.script_method
+    def forward(self, input, hidden):
         input = self.input_kernel(input)
+        hidden = self.recurrent_kernel(hidden)
+        out = self.nonlinearity(input + hidden)
 
-        hidden = hidden.matmul(self.recurrent_kernel)
-
-        out = input + hidden
-
-        if self.nonlinearity:
-            return self.nonlinearity(out)
-        else:
-            return out
+        return out, out
 
     def extra_repr(self):
         return 'input_size={}, hidden_size={}'.format(self.input_size, self.hidden_size)
