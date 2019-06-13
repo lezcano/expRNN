@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from exp_numpy32 import expm, expm_frechet, expm_skew
+from expm import expm, expm_frechet, expm_skew
 
 
 class modrelu(nn.Module):
