@@ -10,11 +10,11 @@ Just copy the main files into your code and use the class `ExpRNN` included in t
 
 ### Orthogonal constraints
 
-We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We show an example in `orthogonal_layer.py`. This could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `exprnn.py` file.
+We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We implement it in the class `Orthogonal`. This could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `exprnn.py` file.
 
 ### Optimization step and general recommendations
 
-To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 113 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+To optimize with orthogonal constraints we need two optimizers, one for the skew-symmetric parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the skew-symmetric parameters and the non orthogonal parameters (cf. line 113 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the skew-symmetric parameters yields the best performance.
 
 Finally, to execute the gradient step, we provide another convenience function called `orthogonal_step` which, given a model and the orthogonal optimizer, it performs a gradient step and updates the orthogonal matrix (cf. line 134 in `1_copying.py`). This function effectively implements the ideas in section 4.3 in the paper.
 
