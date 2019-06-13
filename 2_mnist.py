@@ -130,7 +130,6 @@ def main():
                 100. * batch_idx / len(train_loader), loss.item(), 100 * correct/len(batch_x), best_test_acc))
 
 
-        model.rnn.recurrent_kernel.orthogonalise()
         model.eval()
         with torch.no_grad():
             test_loss = 0.
@@ -144,10 +143,10 @@ def main():
         test_loss /= len(test_loader)
         test_acc = 100 * correct / len(test_loader.dataset)
         best_test_acc = max(test_acc, best_test_acc)
-        print("\n")
-        print(args)
-        print("Test set: Average loss: {:.4f}, Accuracy: {:.2f}%, Best Accuracy: {:.2f}%\n"
+        print()
+        print("Test set: Average loss: {:.4f}, Accuracy: {:.2f}%, Best Accuracy: {:.2f}%"
                 .format(test_loss, test_acc, best_test_acc))
+        print()
 
         model.train()
 

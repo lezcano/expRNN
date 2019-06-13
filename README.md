@@ -37,17 +37,17 @@ This trick also works to gather the `log_orthogonal_kernel` parameters for the o
 
 ## Commands to Reproduce the Experiments
 
-    python 1_copying.py -m exact --L 1000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
-    python 1_copying.py -m exact --L 2000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
-    python 2_mnist.py -m exact --init cayley --hidden_size 170 --lr 7e-4 --lr_orth 7e-5
-    python 2_mnist.py -m exact --init cayley --hidden_size 360 --lr 5e-4 --lr_orth 5e-5
-    python 2_mnist.py -m exact --init cayley --hidden_size 512 --lr 3e-4 --lr_orth 3e-5
-    python 2_mnist.py -m exact --init cayley --hidden_size 170 --lr 1e-3 --lr_orth 1e-4 --permute
-    python 2_mnist.py -m exact --init cayley --hidden_size 360 --lr 7e-4 --lr_orth 7e-5 --permute
-    python 2_mnist.py -m exact --init cayley --hidden_size 512 --lr 5e-4 --lr_orth 5e-5 --permute
-    python 3_timit.py -m exact --init henaff --hidden_size 224 --lr 1e-3 --lr_orth 1e-4
-    python 3_timit.py -m exact --init henaff --hidden_size 322 --lr 7e-4 --lr_orth 7e-5
-    python 3_timit.py -m exact --init henaff --hidden_size 425 --lr 7e-4 --lr_orth 7e-5
+    python 1_copying.py -m exprnn --L 1000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
+    python 1_copying.py -m exprnn --L 2000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 170 --lr 7e-4 --lr_orth 7e-5
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 360 --lr 5e-4 --lr_orth 5e-5
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 512 --lr 3e-4 --lr_orth 3e-5
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 170 --lr 1e-3 --lr_orth 1e-4 --permute
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 360 --lr 7e-4 --lr_orth 7e-5 --permute
+    python 2_mnist.py -m exprnn --init cayley --hidden_size 512 --lr 5e-4 --lr_orth 5e-5 --permute
+    python 3_timit.py -m exprnn --init henaff --hidden_size 224 --lr 1e-3 --lr_orth 1e-4
+    python 3_timit.py -m exprnn --init henaff --hidden_size 322 --lr 7e-4 --lr_orth 7e-5
+    python 3_timit.py -m exprnn --init henaff --hidden_size 425 --lr 7e-4 --lr_orth 7e-5
 
 ### A note on the TIMIT experiment
 The TIMIT dataset is not open, but most universities and many other institutions have access to it.
