@@ -4,13 +4,17 @@ Code and Experiments of the paper "[Cheap Orthogonal Constraints in Neural Netwo
 
 ## Start putting orthogonal constraints in your code
 
+### Requirements
+
+The current implementation requires pytorch 1.1, as it takes advantage of the new features of JIT to implement faster RNNs.
+
 ### Exponential RNN (`expRNN`)
 
 Just copy the main files into your code and use the class `ExpRNN` included in the file `exprnn.py`.
 
 ### Orthogonal constraints
 
-We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We implement it in the class `Orthogonal`. This could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `exprnn.py` file.
+We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We implement it in the class `Orthogonal`. This could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the file `exprnn.py`.
 
 ### Optimization step and general recommendations
 
