@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 import argparse
+import sys
 from torchvision import datasets, transforms
 
-from exprnn import ExpRNN
-from approximants import exp_pade, taylor, scale_square, cayley
+from exprnn import ExpRNN, get_parameters, orthogonal_step
 from initialization import henaff_init, cayley_init
 
 parser = argparse.ArgumentParser(description='Exponential Layer MNIST Task')
@@ -15,12 +15,10 @@ parser.add_argument('--epochs', type=int, default=70)
 parser.add_argument('--lr', type=float, default=7e-4)
 parser.add_argument('--lr_orth', type=float, default=7e-5)
 parser.add_argument("--permute", action="store_true")
-parser.add_argument("--rescale", action="store_true")
 parser.add_argument("-m", "--mode",
-                    choices=["exact", "cayley", "pade", "taylor20", "lstm"],
-                    default="exact",
-                    type=str,
-                    help="LSTM or Approximant to approximate the exponential of matrices")
+                    choices=["exprnn", "lstm"],
+                    default="exprnn",
+                    type=str)
 parser.add_argument("--init",
                     choices=["cayley", "henaff"],
                     default="cayley",
@@ -49,45 +47,30 @@ elif args.init == "henaff":
     init = henaff_init
 
 
-if args.mode == "cayley":
-    exp_func = cayley
-elif args.mode == "pade":
-    exp_func = exp_pade
-elif args.mode == "taylor20":
-    exp_func = lambda X: taylor(X, 20)
-
-if args.mode != "lstm":
-    if args.mode == "exact":
-        # The exact implementation already implements a more advanced form of scale-squaring trick
-        exp = "exact"
-    else:
-        if args.rescale:
-            exp = lambda X: scale_square(X, exp_func)
-        else:
-            exp = exp_func
-
-if args.permute:
-    permute = np.random.RandomState(92916)
-    permutation = torch.LongTensor(permute.permutation(784))
-
-
-class Model(nn.Module):
-    def __init__(self, hidden_size):
+class Model(torch.jit.ScriptModule):
+    __constants__ = ["permute", "permutation"]
+    def __init__(self, hidden_size, permute):
         super(Model, self).__init__()
+        self.permute = permute
+        permute = np.random.RandomState(92916)
+        self.register_buffer("permutation", torch.LongTensor(permute.permutation(784)))
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(1, hidden_size)
         else:
-            self.rnn = ExpRNN(1, hidden_size, exponential=exp, skew_initializer=init)
+            self.rnn = ExpRNN(1, hidden_size, skew_initializer=init)
+
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.CrossEntropyLoss()
 
+    @torch.jit.script_method
     def forward(self, inputs):
-        if args.permute:
-            inputs = inputs[:, permutation]
-        h = None
+        if self.permute:
+            inputs = inputs[:, self.permutation]
+
+        state = self.rnn.default_hidden(inputs[:,0,...])
         for input in torch.unbind(inputs, dim=1):
-            h = self.rnn(input.unsqueeze(dim=1), h)
-        return self.lin(h)
+            _, state = self.rnn(input.unsqueeze(dim=1), state)
+        return self.lin(state)
 
     def loss(self, logits, y):
         return self.loss_func(logits, y)
@@ -107,17 +90,16 @@ def main():
         batch_size=batch_size, shuffle=True, **kwargs)
 
     # Model and optimizers
-    model = Model(hidden_size).to(device)
+    model = Model(hidden_size, args.permute).to(device)
     model.train()
 
     if args.mode == "lstm":
         optim = torch.optim.RMSprop(model.parameters(), lr=args.lr)
         optim_orth = None
     else:
-        optim = torch.optim.RMSprop((param for param in model.parameters()
-                                     if param is not model.rnn.log_recurrent_kernel and
-                                        param is not model.rnn.recurrent_kernel), lr=args.lr)
-        optim_orth = torch.optim.RMSprop([model.rnn.log_recurrent_kernel], lr=args.lr_orth)
+        non_orth_params, log_orth_params = get_parameters(model)
+        optim = torch.optim.RMSprop(non_orth_params, args.lr)
+        optim_orth = torch.optim.RMSprop(log_orth_params, lr=args.lr_orth)
 
     best_test_acc = 0.
     for epoch in range(epochs):
@@ -128,19 +110,25 @@ def main():
             logits = model(batch_x)
             loss = model.loss(logits, batch_y)
 
-            optim.zero_grad()
-            loss.backward()
+            # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
-                model.rnn.orthogonal_step(optim_orth)
+                optim_orth.zero_grad()
+            optim.zero_grad()
+
+            if optim_orth:
+                orthogonal_step(model, optim_orth)
+            loss.backward()
+
             optim.step()
 
             with torch.no_grad():
                 correct = model.correct(logits, batch_y)
 
             processed += len(batch_x)
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tAccuracy: {:.6f}%'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tAccuracy: {:.2f}%\tBest: {:.2f}%'.format(
                 epoch, processed, len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item(), correct/len(batch_x)))
+                100. * batch_idx / len(train_loader), loss.item(), 100 * correct/len(batch_x), best_test_acc))
+
 
         model.eval()
         with torch.no_grad():
@@ -153,10 +141,12 @@ def main():
                 correct += model.correct(logits, batch_y).float()
 
         test_loss /= len(test_loader)
-        test_acc = correct / len(test_loader.dataset)
+        test_acc = 100 * correct / len(test_loader.dataset)
         best_test_acc = max(test_acc, best_test_acc)
-        print("\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%), Best Accuracy: {:.3f}\n"
-                .format(test_loss, correct, len(test_loader.dataset), 100 * test_acc, best_test_acc))
+        print()
+        print("Test set: Average loss: {:.4f}, Accuracy: {:.2f}%, Best Accuracy: {:.2f}%"
+                .format(test_loss, test_acc, best_test_acc))
+        print()
 
         model.train()
 

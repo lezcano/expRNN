@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 import numpy as np
 import argparse
+import datetime
 
-from exprnn import ExpRNN
-from approximants import exp_pade, taylor, scale_square, cayley
+from exprnn import ExpRNN, get_parameters, orthogonal_step
 from initialization import henaff_init, cayley_init
+from timit_loader import TIMIT
 
 parser = argparse.ArgumentParser(description='Exponential Layer TIMIT Task')
 parser.add_argument('--batch_size', type=int, default=128)
@@ -13,12 +14,10 @@ parser.add_argument('--hidden_size', type=int, default=224)
 parser.add_argument('--epochs', type=int, default=1200)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--lr_orth', type=float, default=1e-4)
-parser.add_argument("--rescale", action="store_true")
 parser.add_argument("-m", "--mode",
-                    choices=["exact", "cayley", "pade", "taylor20", "lstm"],
-                    default="exact",
-                    type=str,
-                    help="LSTM or Approximant to approximate the exponential of matrices")
+                    choices=["exprnn", "lstm"],
+                    default="exprnn",
+                    type=str)
 parser.add_argument("--init",
                     choices=["cayley", "henaff"],
                     default="henaff",
@@ -29,7 +28,6 @@ args = parser.parse_args()
 # Fix seed across experiments
 # Same seed as that used in "Orthogonal Recurrent Neural Networks with Scaled Cayley Transform"
 # https://github.com/SpartinStuff/scoRNN/blob/master/scoRNN_copying.py#L79
-
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.manual_seed(5544)
@@ -47,23 +45,6 @@ if args.init == "cayley":
 elif args.init == "henaff":
     init = henaff_init
 
-if args.mode == "cayley":
-    exp_func = cayley
-elif args.mode == "pade":
-    exp_func = exp_pade
-elif args.mode == "taylor20":
-    exp_func = lambda X: taylor(X, 20)
-
-if args.mode != "lstm":
-    if args.mode == "exact":
-        # The exact implementation already implements a more advanced form of scale-squaring trick
-        exp = "exact"
-    else:
-        if args.rescale:
-            exp = lambda X: scale_square(X, exp_func)
-        else:
-            exp = exp_func
-
 
 def masked_loss(lossfunc, logits, y, lens):
     """ Computes the loss of the first `lens` items in the batches """
@@ -75,27 +56,24 @@ def masked_loss(lossfunc, logits, y, lens):
     return lossfunc(logits_masked, y_masked)
 
 
-class Model(nn.Module):
+class Model(torch.jit.ScriptModule):
     def __init__(self, hidden_size):
         super(Model, self).__init__()
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(n_input, hidden_size)
         else:
-            self.rnn = ExpRNN(n_input, hidden_size, exponential=exp, skew_initializer=init)
+            self.rnn = ExpRNN(n_input, hidden_size, skew_initializer=init)
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.MSELoss()
 
+    @torch.jit.script_method
     def forward(self, inputs):
-        h = None
-        out = []
+        state = self.rnn.default_hidden(inputs[:, 0, ...])
+        outputs = torch.jit.annotate(List[Tensor], [])
         for input in torch.unbind(inputs, dim=1):
-            h = self.rnn(input, h)
-            if isinstance(h, tuple):
-                out_rnn = h[0]
-            else:
-                out_rnn = h
-            out.append(self.lin(out_rnn))
-        return torch.stack(out, dim=1)
+            out_rnn, state = self.rnn(input, state)
+            outputs += [self.lin(out_rnn)]
+        return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y, len_batch):
         return masked_loss(self.loss_func, logits, y, len_batch)
@@ -103,79 +81,85 @@ class Model(nn.Module):
 
 def main():
     # Load data
-    train_x = np.load('timit_data/train_x.npy')
-    train_y = np.load('timit_data/train_z.npy')
-    lens_train = np.load("timit_data/lens_train.npy")
+    kwargs = {'num_workers': 1, 'pin_memory': True}
+    train_loader = torch.utils.data.DataLoader(
+        TIMIT('./timit_data', mode="train"),
+        batch_size=batch_size, shuffle=True, **kwargs)
+    # Load test and val in one big batch
+    test_loader = torch.utils.data.DataLoader(
+        TIMIT('./timit_data', mode="test"),
+        batch_size=400, shuffle=True, **kwargs)
+    val_loader = torch.utils.data.DataLoader(
+        TIMIT('./timit_data', mode="val"),
+        batch_size=192, shuffle=True, **kwargs)
 
-    test_x = torch.tensor(np.load('timit_data/test_x.npy'), device=device)
-    test_y = torch.tensor(np.load('timit_data/test_z.npy'), device=device)
-    lens_test = torch.LongTensor(np.load("timit_data/lens_test.npy"), device=device)
-
-    val_x = torch.tensor(np.load('timit_data/eval_x.npy'), device=device)
-    val_y = torch.tensor(np.load('timit_data/eval_z.npy'), device=device)
-    lens_val = torch.LongTensor(np.load("timit_data/lens_eval.npy"), device=device)
-
-    # Shuffle data
-    n_train = train_x.shape[0]
-    p = np.random.permutation(n_train)
-    train_x = train_x[p]
-    train_y = train_y[p]
-    lens_train = lens_train[p]
-
-    # Batching
-    x_batches = torch.tensor(np.array_split(train_x, int(n_train / batch_size)))
-    y_batches = torch.tensor(np.array_split(train_y, int(n_train / batch_size)))
-    lens_batches = torch.LongTensor(np.array_split(lens_train, int(n_train / batch_size)))
 
     # Model and optimizers
     model = Model(hidden_size).to(device)
     model.train()
 
     if args.mode == "lstm":
-        optim = torch.optim.Adam(model.parameters(), lr=args.lr)
+        optim = torch.optim.RMSprop(model.parameters(), lr=args.lr)
         optim_orth = None
     else:
-        optim = torch.optim.Adam((param for param in model.parameters()
-                                  if param is not model.rnn.log_recurrent_kernel and
-                                     param is not model.rnn.recurrent_kernel), lr=args.lr)
-        optim_orth = torch.optim.RMSprop([model.rnn.log_recurrent_kernel], lr=args.lr_orth)
+        non_orth_params, log_orth_params = get_parameters(model)
+        optim = torch.optim.Adam(non_orth_params, args.lr)
+        optim_orth = torch.optim.RMSprop(log_orth_params, lr=args.lr_orth)
 
     best_test = 1e7
     best_validation = 1e7
+
     for epoch in range(epochs):
+        init_time = datetime.datetime.now()
         processed = 0
         step = 1
-        for batch_idx, (batch_x, batch_y, len_batch) in enumerate(zip(x_batches, y_batches, lens_batches)):
+        for batch_idx, (batch_x, batch_y, len_batch) in enumerate(train_loader):
             batch_x, batch_y, len_batch = batch_x.to(device), batch_y.to(device), len_batch.to(device)
 
             logits = model(batch_x)
             loss = model.loss(logits, batch_y, len_batch)
 
-            optim.zero_grad()
-            loss.backward()
+            # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
-                model.rnn.orthogonal_step(optim_orth)
+                optim_orth.zero_grad()
+
+            optim.zero_grad()
+
+            loss.backward()
+
+            if optim_orth:
+                orthogonal_step(model, optim_orth)
             optim.step()
 
             processed += len(batch_x)
             step += 1
 
             print("Epoch {} [{}/{} ({:.0f}%)]\tLoss: {:.2f} "
-                  .format(epoch, processed, len(train_x), 100. * processed / len(train_x), loss))
+                  .format(epoch, processed, len(train_loader.dataset),
+                      100. * processed / len(train_loader.dataset), loss))
 
         model.eval()
         with torch.no_grad():
-            logits_val = model(val_x)
-            loss_val = model.loss(logits_val, val_y, lens_val)
-            logits_test = model(test_x)
-            loss_test = model.loss(logits_test, test_y, lens_test)
+            # There's just one batch for test and validation
+            for batch_x, batch_y, len_batch in test_loader:
+                batch_x, batch_y, len_batch = batch_x.to(device), batch_y.to(device), len_batch.to(device)
+                logits = model(batch_x)
+                loss_test = model.loss(logits, batch_y, len_batch)
+
+            for batch_x, batch_y, len_batch in val_loader:
+                batch_x, batch_y, len_batch = batch_x.to(device), batch_y.to(device), len_batch.to(device)
+                logits = model(batch_x)
+                loss_val = model.loss(logits, batch_y, len_batch)
+
             if loss_val < best_validation:
                 best_validation = loss_val
                 best_test = loss_test
-            print()
-            print("Val:  Loss: {:.2f}\tBest: {:.2f}".format(loss_val, best_validation))
-            print("Test: Loss: {:.2f}\tBest: {:.2f}".format(loss_test, best_test))
-            print()
+
+        print()
+        print("Val:  Loss: {:.2f}\tBest: {:.2f}".format(loss_val, best_validation))
+        print("Test: Loss: {:.2f}\tBest: {:.2f}".format(loss_test, best_test))
+        print()
+
         model.train()
 
 
