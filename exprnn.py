@@ -24,11 +24,11 @@ class modrelu(nn.Module):
         return phase * magnitude
 
 
-def orthogonal_step(orthogonal_optimizer):
+def orthogonal_step(model, orthogonal_optimizer):
     def _orthogonal_step(mod):
         if isinstance(mod, Orthogonal):
             mod.orthogonal_step(orthogonal_optimizer)
-    return _orthogonal_step
+    model.apply(_orthogonal_step)
 
 
 def get_parameters(model):

@@ -128,7 +128,7 @@ def main():
             loss.backward()
 
             if optim_orth:
-                model.apply(orthogonal_step(optim_orth))
+                orthogonal_step(model, optim_orth)
             optim.step()
 
             processed += len(batch_x)

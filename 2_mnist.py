@@ -115,10 +115,10 @@ def main():
                 optim_orth.zero_grad()
             optim.zero_grad()
 
+            if optim_orth:
+                orthogonal_step(model, optim_orth)
             loss.backward()
 
-            if optim_orth:
-                model.apply(orthogonal_step(optim_orth))
             optim.step()
 
             with torch.no_grad():
