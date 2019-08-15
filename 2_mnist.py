@@ -5,7 +5,7 @@ import argparse
 import sys
 from torchvision import datasets, transforms
 
-from exprnn import ExpRNN, get_parameters, orthogonal_step
+from exprnn import ExpRNN, parametrization_trick, get_parameters
 from initialization import henaff_init, cayley_init
 
 parser = argparse.ArgumentParser(description='Exponential Layer MNIST Task')
@@ -47,22 +47,23 @@ elif args.init == "henaff":
     init = henaff_init
 
 
-class Model(torch.jit.ScriptModule):
-    __constants__ = ["permute", "permutation"]
+class Model(nn.Module):
     def __init__(self, hidden_size, permute):
         super(Model, self).__init__()
         self.permute = permute
         permute = np.random.RandomState(92916)
-        self.register_buffer("permutation", torch.LongTensor(permute.permutation(784)))
-        if args.mode == "lstm":
-            self.rnn = nn.LSTMCell(1, hidden_size)
-        else:
+        #self.register_buffer("permutation", torch.LongTensor(permute.permutation(784)))
+        self.permutation = torch.LongTensor(permute.permutation(784))
+        self.orthogonal = args.mode != "lstm"
+        if self.orthogonal:
             self.rnn = ExpRNN(1, hidden_size, skew_initializer=init)
+        else:
+            self.rnn = nn.LSTMCell(1, hidden_size)
 
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.CrossEntropyLoss()
 
-    @torch.jit.script_method
+
     def forward(self, inputs):
         if self.permute:
             inputs = inputs[:, self.permutation]
@@ -73,7 +74,11 @@ class Model(torch.jit.ScriptModule):
         return self.lin(state)
 
     def loss(self, logits, y):
-        return self.loss_func(logits, y)
+        l = self.loss_func(logits, y)
+        if self.orthogonal:
+            return parametrization_trick(model=self, loss=l)
+        else:
+            return l
 
     def correct(self, logits, y):
         return torch.eq(torch.argmax(logits, dim=1), y).float().sum()
@@ -110,16 +115,16 @@ def main():
             logits = model(batch_x)
             loss = model.loss(logits, batch_y)
 
+            optim.zero_grad()
             # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
                 optim_orth.zero_grad()
-            optim.zero_grad()
 
-            if optim_orth:
-                orthogonal_step(model, optim_orth)
             loss.backward()
 
             optim.step()
+            if optim_orth:
+                optim_orth.step()
 
             with torch.no_grad():
                 correct = model.correct(logits, batch_y)

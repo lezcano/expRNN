@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import datetime
 
-from exprnn import ExpRNN, get_parameters, orthogonal_step
+from exprnn import ExpRNN, parametrization_trick, get_parameters
 from initialization import henaff_init, cayley_init
 from timit_loader import TIMIT
 
@@ -59,24 +59,28 @@ def masked_loss(lossfunc, logits, y, lens):
 class Model(torch.jit.ScriptModule):
     def __init__(self, hidden_size):
         super(Model, self).__init__()
-        if args.mode == "lstm":
-            self.rnn = nn.LSTMCell(n_input, hidden_size)
-        else:
+        self.orthogonal = args.mode != "lstm"
+        if self.orthogonal:
             self.rnn = ExpRNN(n_input, hidden_size, skew_initializer=init)
+        else:
+            self.rnn = nn.LSTMCell(n_input, hidden_size)
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.MSELoss()
 
-    @torch.jit.script_method
     def forward(self, inputs):
         state = self.rnn.default_hidden(inputs[:, 0, ...])
-        outputs = torch.jit.annotate(List[Tensor], [])
+        outputs = []
         for input in torch.unbind(inputs, dim=1):
             out_rnn, state = self.rnn(input, state)
-            outputs += [self.lin(out_rnn)]
+            outputs.append([self.lin(out_rnn)])
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y, len_batch):
-        return masked_loss(self.loss_func, logits, y, len_batch)
+        l = masked_loss(self.loss_func, logits, y, len_batch)
+        if self.orthogonal:
+            return parametrization_trick(model=self, loss=l)
+        else:
+            return l
 
 
 def main():
@@ -119,17 +123,16 @@ def main():
             logits = model(batch_x)
             loss = model.loss(logits, batch_y, len_batch)
 
+            optim.zero_grad()
             # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
                 optim_orth.zero_grad()
 
-            optim.zero_grad()
-
             loss.backward()
 
-            if optim_orth:
-                orthogonal_step(model, optim_orth)
             optim.step()
+            if optim_orth:
+                optim_orth.step()
 
             processed += len(batch_x)
             step += 1
