@@ -6,8 +6,7 @@ import datetime
 
 from parametrization import parametrization_trick, get_parameters
 from orthogonal import OrthogonalRNN
-from trivializations import cayley_map
-from expm import expm_skew
+from trivializations import cayley_map, expm_skew
 from initialization import henaff_init, cayley_init
 from timit_loader import TIMIT
 
