@@ -34,6 +34,9 @@ All one has to do is to implement a class that inherits from it and implements t
 
 We implemented a class that optimizes over the Stiefel manifold in `orthogonal.py` as an example. This is the class that we also use for the experiments.
 
+## A note on the papers
+The NeurIPS paper "Trivializations for Gradient-Based Optimization on Manifolds" is a far reaching generalization of the paper "Cheap Orthogonal Constraints in Neural Networks". As such, some parts of the paper are more abstract, as they are more general. We recommend the interested reader to start reading the ICML paper, and just then, go for the NeurIPS paper. In both papers, there are certain sections in the appendix that are more technical. These sections are not necessary for the implementation of the algorithms. It can be particularly userful Section E of the Trivializations paper, as it contains many possible applications of the framework in different contexts.
+
 ## A note on the TIMIT experiment
 The TIMIT dataset is not open, but most universities and many other institutions have access to it.
 
