@@ -1,39 +1,37 @@
 # ExpRNN: Cheap Orthogonal Constraints
 
-Code and Experiments of the paper "[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxiv]"
+Code and Experiments of the papers:
+
+"Trivializations for Gradient-Based Optimization on Manifolds"
+
+"[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap]"
 
 ## Start putting orthogonal constraints in your code
 
 ### Exponential RNN (`expRNN`)
 
-Just copy the main files into your code and use the class `ExpRNN` included in the file `exprnn.py`.
+Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`.
 
 ### Orthogonal constraints
 
-We show how to implement orthogonal constraints for non-square linear layers. This is a generalisation of the framework presented in the paper. We show an example in `orthogonal_layer.py`. This could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `exprnn.py` file.
+We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing "["expRNN"][arxivcheap]", or as a dynamic trivialization, implementing "dtriv" as in the paper "Trivializations for Gradient-Based Optimization on Manifolds". It can also be used as a static or a dynamic trivialization with other parametrizations, like the Cayley transform. We include this as an example in the experiments.
+
+This layer could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `orthogonal.py` file.
 
 ### Optimization step and general recommendations
 
-To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 113 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 137 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
 
-Finally, to execute the gradient step, we provide another convenience function called `orthogonal_step` which, given a model and the orthogonal optimizer, it performs a gradient step and updates the orthogonal matrix (cf. line 134 in `1_copying.py`). This function effectively implements the ideas in section 4.3 in the paper.
+Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in "[Section 4.3][arxivcheap]" in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. line 105 in `1_copying.py`).
 
 These are the only two things that are needed to perform optimization with orthogonal constraints in your neural network.
 
-## Commands to Reproduce the Experiments
+## General manifold constraints
+The framework presented in the paper "Trivializations for Gradient-Based Optimization on Manifolds" allows to put orthogonal constraints in any given manifold through the use of dynamic parametrizations. In order to create your own, just follow the instructions detailed at the beginning of the class `Parametrization` in the file `parametrization.py`.
 
-    python 1_copying.py -m exprnn --L 1000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
-    python 1_copying.py -m exprnn --L 2000 --hidden_size 190 --init henaff --lr 2e-4 --lr_orth 2e-5
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 170 --lr 7e-4 --lr_orth 7e-5
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 360 --lr 5e-4 --lr_orth 5e-5
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 512 --lr 3e-4 --lr_orth 3e-5
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 170 --lr 1e-3 --lr_orth 1e-4 --permute
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 360 --lr 7e-4 --lr_orth 7e-5 --permute
-    python 2_mnist.py -m exprnn --init cayley --hidden_size 512 --lr 5e-4 --lr_orth 5e-5 --permute
-    python 3_timit.py -m exprnn --init henaff --hidden_size 224 --lr 1e-3 --lr_orth 1e-4
-    python 3_timit.py -m exprnn --init henaff --hidden_size 322 --lr 7e-4 --lr_orth 7e-5
-    python 3_timit.py -m exprnn --init henaff --hidden_size 425 --lr 7e-4 --lr_orth 7e-5
+All one has to do is to implement a class that inherits from it and implements the method `retraction`. In the Section E of the trivializations paper we describe many different types of trivializations on different manifolds. That can be a good place to start looking for ideas.
 
+We implemented a class that optimizes over the Stiefel manifold in `orthogonal.py` as an example. This is the class that we also use for the experiments.
 
 ## A note on the TIMIT experiment
 The TIMIT dataset is not open, but most universities and many other institutions have access to it.
@@ -89,6 +87,13 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
 
 ## Cite this work
 
+    @inproceedings{lezcano2019trivializations,
+      title={Trivializations for Gradient-Based Optimization on Manifolds},
+      author={Lezcano-Casado, Mario}
+      booktitle={Neural Information Processing Systems},
+      year={2019}
+    }
+
     @inproceedings{lezcano2019cheap,
       title={Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group},
       author={Lezcano-Casado, Mario and Mart{\'i}nez-Rubio, David},
@@ -97,4 +102,4 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
       year={2019}
     }
 
-[arxiv]: https://arxiv.org/abs/1901.08428
+[arxivcheap]: https://arxiv.org/abs/1901.08428

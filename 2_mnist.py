@@ -5,8 +5,12 @@ import argparse
 import sys
 from torchvision import datasets, transforms
 
-from exprnn import ExpRNN, parametrization_trick, get_parameters
+from parametrization import parametrization_trick, get_parameters
+from orthogonal import OrthogonalRNN
+from trivializations import cayley_map
+from expm import expm_skew
 from initialization import henaff_init, cayley_init
+
 
 parser = argparse.ArgumentParser(description='Exponential Layer MNIST Task')
 parser.add_argument('--batch_size', type=int, default=128)
@@ -16,9 +20,10 @@ parser.add_argument('--lr', type=float, default=7e-4)
 parser.add_argument('--lr_orth', type=float, default=7e-5)
 parser.add_argument("--permute", action="store_true")
 parser.add_argument("-m", "--mode",
-                    choices=["exprnn", "lstm"],
-                    default="exprnn",
+                    choices=["exprnn", "dtriv", "cayley", "lstm"],
+                    default="dtriv",
                     type=str)
+parser.add_argument('--K', type=str, default="100", help='The K parameter in the dtriv algorithm. It should be a positive integer or "infty".')
 parser.add_argument("--init",
                     choices=["cayley", "henaff"],
                     default="cayley",
@@ -46,19 +51,34 @@ if args.init == "cayley":
 elif args.init == "henaff":
     init = henaff_init
 
+if args.K != "infty":
+    args.K = int(args.K)
+if args.mode == "exprnn":
+    mode = "static"
+    param = expm_skew
+elif args.mode == "dtriv":
+    # We use 100 as the default to project back to the manifold.
+    # This parameter does not really affect the convergence of the algorithms, even for K=1
+    mode = ("dynamic", args.K, 100)
+    param = expm_skew
+elif args.mode == "cayley":
+    mode = "static"
+    param = cayley_map
+
+
+
+
 
 class Model(nn.Module):
     def __init__(self, hidden_size, permute):
         super(Model, self).__init__()
         self.permute = permute
         permute = np.random.RandomState(92916)
-        #self.register_buffer("permutation", torch.LongTensor(permute.permutation(784)))
-        self.permutation = torch.LongTensor(permute.permutation(784))
-        self.orthogonal = args.mode != "lstm"
-        if self.orthogonal:
-            self.rnn = ExpRNN(1, hidden_size, skew_initializer=init)
-        else:
+        self.register_buffer("permutation", torch.LongTensor(permute.permutation(784)))
+        if args.mode == "lstm":
             self.rnn = nn.LSTMCell(1, hidden_size)
+        else:
+            self.rnn = OrthogonalRNN(1, hidden_size, skew_initializer=init, mode=mode, param=param)
 
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.CrossEntropyLoss()
@@ -75,7 +95,7 @@ class Model(nn.Module):
 
     def loss(self, logits, y):
         l = self.loss_func(logits, y)
-        if self.orthogonal:
+        if isinstance(self.rnn, OrthogonalRNN):
             return parametrization_trick(model=self, loss=l)
         else:
             return l
