@@ -8,11 +8,16 @@ Code and Experiments of the papers:
 
 ## Start putting orthogonal constraints in your code
 
+### Requirements
+
+The current implementation requires pytorch 1.1, as it takes advantage of the new features of JIT to implement faster RNNs.
+
 ### Exponential RNN (`expRNN`)
 
 Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`.
 
 ### Orthogonal constraints
+
 
 We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing "["expRNN"][arxivcheap]", or as a dynamic trivialization, implementing "dtriv" as in the paper "Trivializations for Gradient-Based Optimization on Manifolds". It can also be used as a static or a dynamic trivialization with other parametrizations, like the Cayley transform. We include this as an example in the experiments.
 
@@ -21,6 +26,7 @@ This layer could also be applied to other kinds of layers like CNNs, and as a he
 ### Optimization step and general recommendations
 
 To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 137 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+
 
 Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in "[Section 4.3][arxivcheap]" in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. line 105 in `1_copying.py`).
 
