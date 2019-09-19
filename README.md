@@ -1,25 +1,20 @@
-# ExpRNN: Cheap Orthogonal Constraints
+# Dynamic Trivializations: Cheap and Simple Manifold Constraints (Orthogonal, Positive Definite, Positive determinant...)
 
 Code and Experiments of the papers:
 
-"Trivializations for Gradient-Based Optimization on Manifolds"
+"[Trivializations for Gradient-Based Optimization on Manifolds][arxivtriv]"
 
 "[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap]"
 
 ## Start putting orthogonal constraints in your code
 
-### Requirements
+### Orthogonal Dynamic Trivialization RNN (`dtriv`)
 
-The current implementation requires pytorch 1.1, as it takes advantage of the new features of JIT to implement faster RNNs.
-
-### Exponential RNN (`expRNN`)
-
-Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`.
+Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`. This implmentation has [`expRNN`][arxivcheap] as a particular case, as described in the remark in [Section 7][arxivtriv].
 
 ### Orthogonal constraints
 
-
-We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing "["expRNN"][arxivcheap]", or as a dynamic trivialization, implementing "dtriv" as in the paper "Trivializations for Gradient-Based Optimization on Manifolds". It can also be used as a static or a dynamic trivialization with other parametrizations, like the Cayley transform. We include this as an example in the experiments.
+We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing `[expRNN][arxivcheap]`, or as a dynamic trivialization, implementing `[dtriv][arxivtriv]`. It can also be used as a static or a dynamic trivialization with other parametrizations of the orthogonal group, like the Cayley transform. We include the Cayley transform as an example in the experiments as well.
 
 This layer could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `orthogonal.py` file.
 
@@ -28,14 +23,14 @@ This layer could also be applied to other kinds of layers like CNNs, and as a he
 To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 137 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
 
 
-Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in "[Section 4.3][arxivcheap]" in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. line 105 in `1_copying.py`).
+Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in [Section 4.3][arxivcheap] in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. line 105 in `1_copying.py`).
 
 These are the only two things that are needed to perform optimization with orthogonal constraints in your neural network.
 
 ## General manifold constraints
 The framework presented in the paper "Trivializations for Gradient-Based Optimization on Manifolds" allows to put orthogonal constraints in any given manifold through the use of dynamic parametrizations. In order to create your own, just follow the instructions detailed at the beginning of the class `Parametrization` in the file `parametrization.py`.
 
-All one has to do is to implement a class that inherits from it and implements the method `retraction`. In the Section E of the trivializations paper we describe many different types of trivializations on different manifolds. That can be a good place to start looking for ideas.
+All one has to do is to implement a class that inherits from it and implements the method `retraction`. In the [Section 6.3 and Section E][arxivtriv] we describe many different types of trivializations on different manifolds, which can be a good place to look for ideas.
 
 We implemented a class that optimizes over the Stiefel manifold in `orthogonal.py` as an example. This is the class that we also use for the experiments.
 
@@ -108,4 +103,5 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
       year={2019}
     }
 
+[arxivtriv]: https://arxiv.org/abs/1901.08428
 [arxivcheap]: https://arxiv.org/abs/1901.08428
