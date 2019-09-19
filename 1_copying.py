@@ -3,7 +3,9 @@ import torch.nn as nn
 import numpy as np
 import argparse
 
-from exprnn import ExpRNN, get_parameters, orthogonal_step
+from parametrization import parametrization_trick, get_parameters
+from orthogonal import OrthogonalRNN
+from trivializations import cayley_map, expm_skew
 from initialization import henaff_init, cayley_init
 
 parser = argparse.ArgumentParser(description='Exponential Layer Copy Task')
@@ -14,9 +16,10 @@ parser.add_argument('--L', type=int, default=1000)
 parser.add_argument('--lr', type=float, default=2e-4)
 parser.add_argument('--lr_orth', type=float, default=2e-5)
 parser.add_argument("-m", "--mode",
-                    choices=["exprnn", "lstm"],
-                    default="exprnn",
+                    choices=["exprnn", "dtriv", "cayley", "lstm"],
+                    default="dtriv",
                     type=str)
+parser.add_argument('--K', type=str, default="100", help='The K parameter in the dtriv algorithm. It should be a positive integer or "infty".')
 parser.add_argument("--init",
                     choices=["cayley", "henaff"],
                     default="henaff",
@@ -43,6 +46,22 @@ if args.init == "cayley":
 elif args.init == "henaff":
     init = henaff_init
 
+if args.K != "infty":
+    args.K = int(args.K)
+if args.mode == "exprnn":
+    mode = "static"
+    param = expm_skew
+elif args.mode == "dtriv":
+    # We use 100 as the default to project back to the manifold.
+    # This parameter does not really affect the convergence of the algorithms, even for K=1
+    mode = ("dynamic", args.K, 100)
+    param = expm_skew
+elif args.mode == "cayley":
+    mode = "static"
+    param = cayley_map
+
+
+
 def copying_data(L, K, batch_size):
     seq = np.random.randint(1, high=9, size=(batch_size, K))
     zeros1 = np.zeros((batch_size, L))
@@ -56,13 +75,13 @@ def copying_data(L, K, batch_size):
     return x, y
 
 
-class Model(torch.jit.ScriptModule):
+class Model(nn.Module):
     def __init__(self, n_classes, hidden_size):
         super(Model, self).__init__()
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(n_classes + 1, hidden_size)
         else:
-            self.rnn = ExpRNN(n_classes + 1, hidden_size, skew_initializer=init)
+            self.rnn = OrthogonalRNN(n_classes + 1, hidden_size, skew_initializer=init, mode=mode, param=param)
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.CrossEntropyLoss()
         self.reset_parameters()
@@ -71,17 +90,20 @@ class Model(torch.jit.ScriptModule):
         nn.init.kaiming_normal_(self.lin.weight.data, nonlinearity="relu")
         nn.init.constant_(self.lin.bias.data, 0)
 
-    @torch.jit.script_method
     def forward(self, inputs):
         state = self.rnn.default_hidden(inputs[:, 0, ...])
-        outputs = torch.jit.annotate(List[Tensor], [])
+        outputs = []
         for input in torch.unbind(inputs, dim=1):
             out_rnn, state = self.rnn(input, state)
-            outputs += [self.lin(out_rnn)]
+            outputs.append(self.lin(out_rnn))
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y):
-        return self.loss_func(logits.view(-1, 9), y.view(-1))
+        l = self.loss_func(logits.view(-1, 9), y.view(-1))
+        if isinstance(self.rnn, OrthogonalRNN):
+            return parametrization_trick(model=self, loss=l)
+        else:
+            return l
 
     def accuracy(self, logits, y):
         return torch.eq(torch.argmax(logits, dim=2), y).float().mean()
@@ -124,16 +146,16 @@ def main():
         logits = model(x_onehot)
         loss = model.loss(logits, batch_y)
 
+        optim.zero_grad()
         # Zeroing out the optim_orth is not really necessary, but we do it for consistency
         if optim_orth:
             optim_orth.zero_grad()
-        optim.zero_grad()
 
         loss.backward()
 
-        if optim_orth:
-            orthogonal_step(model, optim_orth)
         optim.step()
+        if optim_orth:
+            optim_orth.step()
 
         with torch.no_grad():
             accuracy = model.accuracy(logits, batch_y)

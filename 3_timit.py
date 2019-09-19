@@ -4,9 +4,12 @@ import numpy as np
 import argparse
 import datetime
 
-from exprnn import ExpRNN, get_parameters, orthogonal_step
+from parametrization import parametrization_trick, get_parameters
+from orthogonal import OrthogonalRNN
+from trivializations import cayley_map, expm_skew
 from initialization import henaff_init, cayley_init
 from timit_loader import TIMIT
+
 
 parser = argparse.ArgumentParser(description='Exponential Layer TIMIT Task')
 parser.add_argument('--batch_size', type=int, default=128)
@@ -15,9 +18,10 @@ parser.add_argument('--epochs', type=int, default=1200)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--lr_orth', type=float, default=1e-4)
 parser.add_argument("-m", "--mode",
-                    choices=["exprnn", "lstm"],
-                    default="exprnn",
+                    choices=["exprnn", "dtriv", "cayley", "lstm"],
+                    default="dtriv",
                     type=str)
+parser.add_argument('--K', type=str, default="100", help='The K parameter in the dtriv algorithm. It should be a positive integer or "infty".')
 parser.add_argument("--init",
                     choices=["cayley", "henaff"],
                     default="henaff",
@@ -45,10 +49,24 @@ if args.init == "cayley":
 elif args.init == "henaff":
     init = henaff_init
 
+if args.K != "infty":
+    args.K = int(args.K)
+if args.mode == "exprnn":
+    mode = "static"
+    param = expm_skew
+elif args.mode == "dtriv":
+    # We use 100 as the default to project back to the manifold.
+    # This parameter does not really affect the convergence of the algorithms, even for K=1
+    mode = ("dynamic", args.K, 100)
+    param = expm_skew
+elif args.mode == "cayley":
+    mode = "static"
+    param = cayley_map
+
 
 def masked_loss(lossfunc, logits, y, lens):
     """ Computes the loss of the first `lens` items in the batches """
-    mask = torch.zeros_like(logits, dtype=torch.uint8)
+    mask = torch.zeros_like(logits, dtype=torch.bool)
     for i, l in enumerate(lens):
         mask[i, :l, :] = 1
     logits_masked = torch.masked_select(logits, mask)
@@ -56,27 +74,30 @@ def masked_loss(lossfunc, logits, y, lens):
     return lossfunc(logits_masked, y_masked)
 
 
-class Model(torch.jit.ScriptModule):
+class Model(nn.Module):
     def __init__(self, hidden_size):
         super(Model, self).__init__()
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(n_input, hidden_size)
         else:
-            self.rnn = ExpRNN(n_input, hidden_size, skew_initializer=init)
+            self.rnn = OrthogonalRNN(n_input, hidden_size, skew_initializer=init, mode=mode, param=param)
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.MSELoss()
 
-    @torch.jit.script_method
     def forward(self, inputs):
         state = self.rnn.default_hidden(inputs[:, 0, ...])
-        outputs = torch.jit.annotate(List[Tensor], [])
+        outputs = []
         for input in torch.unbind(inputs, dim=1):
             out_rnn, state = self.rnn(input, state)
-            outputs += [self.lin(out_rnn)]
+            outputs.append(self.lin(out_rnn))
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y, len_batch):
-        return masked_loss(self.loss_func, logits, y, len_batch)
+        l = masked_loss(self.loss_func, logits, y, len_batch)
+        if isinstance(self.rnn, OrthogonalRNN):
+            return parametrization_trick(model=self, loss=l)
+        else:
+            return l
 
 
 def main():
@@ -119,17 +140,16 @@ def main():
             logits = model(batch_x)
             loss = model.loss(logits, batch_y, len_batch)
 
+            optim.zero_grad()
             # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
                 optim_orth.zero_grad()
 
-            optim.zero_grad()
-
             loss.backward()
 
-            if optim_orth:
-                orthogonal_step(model, optim_orth)
             optim.step()
+            if optim_orth:
+                optim_orth.step()
 
             processed += len(batch_x)
             step += 1
