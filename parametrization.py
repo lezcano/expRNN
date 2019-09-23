@@ -26,7 +26,7 @@ def parametrization_trick(model, loss):
         kwargs["retain_graph"] = True
         backward(*args, **kwargs)
 
-        # Apply the backwards function to every Parametrized layer
+        # Apply the backwards function to every Parametrized layer after applying loss.backward()
         def _backwards_param(mod):
             if isinstance(mod, Parametrization):
                 mod.backwards_param()

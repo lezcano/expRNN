@@ -87,9 +87,15 @@ class Model(nn.Module):
         if self.permute:
             inputs = inputs[:, self.permutation]
 
-        state = self.rnn.default_hidden(inputs[:,0,...])
+        if isinstance(self.rnn, OrthogonalRNN):
+            state = self.rnn.default_hidden(inputs[:, 0, ...])
+        else:
+            state = (torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device),
+                     torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device))
         for input in torch.unbind(inputs, dim=1):
-            _, state = self.rnn(input.unsqueeze(dim=1), state)
+            out_rnn, state = self.rnn(input.unsqueeze(dim=1), state)
+            if isinstance(self.rnn, nn.LSTMCell):
+                state = (out_rnn, state)
         return self.lin(state)
 
     def loss(self, logits, y):

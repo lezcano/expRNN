@@ -78,6 +78,7 @@ def copying_data(L, K, batch_size):
 class Model(nn.Module):
     def __init__(self, n_classes, hidden_size):
         super(Model, self).__init__()
+        self.hidden_size = hidden_size
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(n_classes + 1, hidden_size)
         else:
@@ -91,19 +92,24 @@ class Model(nn.Module):
         nn.init.constant_(self.lin.bias.data, 0)
 
     def forward(self, inputs):
-        state = self.rnn.default_hidden(inputs[:, 0, ...])
+        if isinstance(self.rnn, OrthogonalRNN):
+            state = self.rnn.default_hidden(inputs[:, 0, ...])
+        else:
+            state = (torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device),
+                     torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device))
+        print(inputs.size())
         outputs = []
         for input in torch.unbind(inputs, dim=1):
             out_rnn, state = self.rnn(input, state)
+            if isinstance(self.rnn, nn.LSTMCell):
+                state = (out_rnn, state)
             outputs.append(self.lin(out_rnn))
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y):
         l = self.loss_func(logits.view(-1, 9), y.view(-1))
-        if isinstance(self.rnn, OrthogonalRNN):
-            return parametrization_trick(model=self, loss=l)
-        else:
-            return l
+        # If the model does not have any OrthogonalRNN (or any Parametrization object) this is is a noop
+        return parametrization_trick(model=self, loss=l)
 
     def accuracy(self, logits, y):
         return torch.eq(torch.argmax(logits, dim=2), y).float().mean()
