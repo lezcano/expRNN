@@ -8,9 +8,9 @@ Code and Experiments of the papers:
 
 ## Start putting orthogonal constraints in your code
 
-### Orthogonal Dynamic Trivialization RNN (`dtriv`)
+### Orthogonal Dynamic Trivialization RNN (`dtriv` / `expRNN`)
 
-Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`. This implmentation has [`expRNN`][arxivcheap] as a particular case, as described in the remark in [Section 7][arxivtriv]. In the models for the experiments it can be selected through the `--mode` parameter.
+Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`. This class implements the [`dtriv`][arxivtriv] framework for optimization with orthogonal contraints. It has [`expRNN`][arxivcheap] as a particular case, as described in the remark in [Section 7][arxivtriv]. In the models for the experiments it can be selected through the `--mode` parameter.
 
 ### Orthogonal constraints
 
