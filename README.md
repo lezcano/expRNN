@@ -43,7 +43,7 @@ We implemented a class that optimizes over the Stiefel manifold in `orthogonal.p
 
 - In both papers, there are certain sections in the appendix that are more technical. These sections are not necessary for the implementation of the algorithms.
 
-- It can be particularly userful Section E of the Trivializations paper, as it contains many possible applications of the framework in different contexts.
+- [Section E][arxivtriv] of the Trivializations paper can be particularly userful , as it contains many possible applications of the framework in different contexts.
 
 ## A note on the TIMIT experiment
 The TIMIT dataset is not open, but most universities and many other institutions have access to it.
