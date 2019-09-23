@@ -10,7 +10,7 @@ Code and Experiments of the papers:
 
 ### Orthogonal Dynamic Trivialization RNN (`dtriv`)
 
-Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`. This implmentation has [`expRNN`][arxivcheap] as a particular case, as described in the remark in [Section 7][arxivtriv].
+Just copy the main files into your code and use the class `OrthogonalRNN` included in the file `orthogonal.py`. This implmentation has [`expRNN`][arxivcheap] as a particular case, as described in the remark in [Section 7][arxivtriv]. In the models for the experiments it can be selected through the `--mode` parameter.
 
 ### Orthogonal constraints
 
@@ -35,7 +35,7 @@ All one has to do is to implement a class that inherits from it and implements t
 We implemented a class that optimizes over the Stiefel manifold in `orthogonal.py` as an example. This is the class that we also use for the experiments.
 
 ## A note on the papers
-- For the researcher who is mostly interested in the idea and how to implement it in their experiments, a reading order of the papers could be: `Sections 1, 3.1, 3.2, 4` of the Cheap paper, and then `Sections 1, 5, 6, E` of the Trivializations paper. 
+- For the researcher who is mostly interested in the idea and how to implement it in their experiments, a reading order of the papers could be: [`Sections 1, 3.1, 3.2, 4`][arxivcheap] of the Cheap paper, and then [`Sections 1, 5, 6, E`][arxivtriv] of the Trivializations paper. 
 
 - The NeurIPS paper "Trivializations for Gradient-Based Optimization on Manifolds" is a far reaching generalization of the paper "Cheap Orthogonal Constraints in Neural Networks". As such, some parts of the paper are more abstract, as they are more general. We recommend the interested reader to start reading the ICML paper, and just then, go for the NeurIPS paper. 
 
@@ -112,5 +112,5 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
       year={2019}
     }
 
-[arxivtriv]: https://arxiv.org/abs/1901.08428
+[arxivtriv]: https://arxiv.org/abs/1909.09501
 [arxivcheap]: https://arxiv.org/abs/1901.08428
