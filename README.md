@@ -22,10 +22,10 @@ This class can serve as an example for how to use the `Parametrization` class to
 
 ### Optimization step and general recommendations
 
-To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the orthogoanl (skew-symmetric in this case) and non orthogonal parameters (cf line 137 in `1_copying.py`). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the parametrized parameters to be optimized (skew-symmetric in this case) and non orthogonal parameters (cf [line 141 in `1_copying.py`][getparam]). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
 
 
-Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in [Section 4.3][arxivcheap] in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. line 105 in `1_copying.py`).
+Finally, we just have to use the second helper function `parametrization_trick` which effectively implements the idea described in [Section 4.3][arxivcheap] in a general way. To use it, just pass the model and the loss object after having computing the loss of your model. This function will return a modified loss object (cf. [line 112 in `1_copying.py`][paramtrick]).
 
 These are the only two things that are needed to perform optimization with orthogonal constraints in your neural network.
 
@@ -116,3 +116,5 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
 
 [arxivtriv]: https://arxiv.org/abs/1909.09501
 [arxivcheap]: https://arxiv.org/abs/1901.08428
+[paramtrick]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L112
+[parameters]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L141
