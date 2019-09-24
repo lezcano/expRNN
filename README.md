@@ -14,7 +14,7 @@ Just copy the main files into your code and use the class `OrthogonalRNN` includ
 
 ### Orthogonal constraints
 
-We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing `[expRNN][arxivcheap]`, or as a dynamic trivialization, implementing `[dtriv][arxivtriv]`. It can also be used as a static or a dynamic trivialization with other parametrizations of the orthogonal group, like the Cayley transform. We include the Cayley transform as an example in the experiments as well.
+We implement a class `Orthogonal` in the file `orthogonal.py` that can be used both as a static trivialization via the exponential map implementing [`expRNN`][arxivcheap], or as a dynamic trivialization, implementing [`dtriv`][arxivtriv]. It can also be used as a static or a dynamic trivialization with other parametrizations of the orthogonal group, like the Cayley transform. We include the Cayley transform as an example in the experiments as well.
 
 This layer could also be applied to other kinds of layers like CNNs, and as a helper for different kinds of decompositions in linear layers (QR, SVD, Polar, Schur...). To do this, just use the `Orthogonal` class included in the `orthogonal.py` file.
 
