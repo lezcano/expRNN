@@ -2,9 +2,9 @@
 
 Code and Experiments of the papers:
 
-"[Trivializations for Gradient-Based Optimization on Manifolds][arxivtriv]"
+"[Trivializations for Gradient-Based Optimization on Manifolds][arxivtriv]" Neurips 2019
 
-"[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap]"
+"[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap]" ICML 2019
 
 ## Start putting orthogonal constraints in your code
 
