@@ -15,9 +15,8 @@ class Orthogonal(Parametrization):
 
         param: A parametrization of in terms of skew-symmetyric matrices
         """
-        # We asign it before calling super so that it is ready for the initialization within the class `Parametrization`
-        self.param = param
         super(Orthogonal, self).__init__(input_size, output_size, initializer, mode)
+        self.param = param
 
     def retraction(self, A_raw, base):
         # This could be any parametrization of a tangent space
@@ -78,6 +77,7 @@ class OrthogonalRNN(nn.Module):
     def forward(self, input, hidden):
         input = self.input_kernel(input)
         hidden = self.recurrent_kernel(hidden)
-        out = self.nonlinearity(input + hidden)
+        out = input + hidden
+        out = self.nonlinearity(out)
 
         return out, out

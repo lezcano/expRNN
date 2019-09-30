@@ -57,6 +57,8 @@ class Parametrization(nn.Module):
     """
     def __init__(self, input_size, output_size, initializer, mode):
         """
+        initializer: (Tensor) -> Tensor. Initializes inplace the given tensor. It also returns it. Compatible with the initializers in torch.nn.init
+
         mode: "static" or a tuple such that:
                 mode[0] == "dynamic"
                 mode[1]: int, K, the number of steps after which we should change the basis of the dyn triv
@@ -72,6 +74,7 @@ class Parametrization(nn.Module):
         self.register_buffer("_B", torch.empty(self.input_size, self.output_size, requires_grad=True))
         self.register_buffer('base', torch.eye(self.max_size))
         self.initializer = initializer
+
         self.B_updated = False
         self.graph_computed = False
 
@@ -82,17 +85,13 @@ class Parametrization(nn.Module):
             self.K = mode[1]
             self.M = mode[2]
             self.k = 0
-            self.proj = 0
+            self.m = 0
 
+        self.first_base_update = self.mode == "static"
         self.reset_parameters()
 
     def reset_parameters(self):
-        self._A.data = \
-                torch.as_tensor(self.initializer(self.max_size),
-                        dtype=self._A.dtype,
-                        device=self._A.device)
-        if self.mode == "dynamic":
-            self.rebase()
+        self.initializer(self._A)
 
 
     def rebase(self):
@@ -100,23 +99,30 @@ class Parametrization(nn.Module):
             self.base = self.retraction(self._A, self.base).data
             self._A.data.zero_()
 
-    @property
     def B(self):
         """
         Forward part of the paramtrization trick
         """
+
+        # The first time we enter B, if it's a dynamic parametrization, we update the base
+        # This line is the difference between static and dynamic with K = infty
+        if not self.first_base_update and  self.mode == "dynamic":
+            self.rebase()
+            self.first_base_update = True
+
         # We compute the parametrization once per iteration, i.e., if:
             # We haven't updated it yet (the B_updated is a "dirty" flag)
-            # We have computed it, but it was during test time (within an with torch.no_grad() clause)
+            # We have computed it, but it was during test time (within a with torch.no_grad() clause)
                 # In this case, we recompute it to have the graph of its derivative
         if not self.B_updated or (torch.is_grad_enabled() and not self.graph_computed):
             # Clean gradients from last iteration, as the variable is not managed by an optimizer
+            # This is necessary becuase we are using retain_graph in the backwards function for efficiency
             if self._B.grad is not None:
                 # Free the computation graph.
                 del self._B
                 # Calling the gc manually is necessary here to clean the graph.
                 gc.collect()
-            # Compute the parametrization B on the manifold
+            # Compute the parametrization B on the manifold and its derivative graph
             self._B = self.retraction(self._A, self.base)
             # We increment the dynamic trivialization counter whenever we compute B for the first time
             # after a gradient update, this is, whenever self.B_updated == False
@@ -127,12 +133,12 @@ class Parametrization(nn.Module):
                     if self.k == 0:
                         self.rebase()
                         # Project the basis back to the manifold every M changes of basis
-                        self.proj = (self.proj + 1) % self.M
-                        if self.proj == 0:
+                        self.m = (self.m + 1) % self.M
+                        if self.m == 0:
                             # It's optional to implement this method
                             if hasattr(self, "project"):
                                 with torch.no_grad():
-                                    self.base = self.project(self.base)
+                                    self.base.copy_(self.project(self.base))
             # Now it's not a leaf tensor, but we convert it into a leaf
             self._B.retain_grad()
             # Update the "clean" flags
@@ -147,4 +153,4 @@ class Parametrization(nn.Module):
         self.B_updated=False
 
     def forward(self, input):
-        return input.matmul(self.B)
+        return input.matmul(self.B())

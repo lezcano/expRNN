@@ -6,7 +6,8 @@ import argparse
 from parametrization import parametrization_trick, get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm_skew
-from initialization import henaff_init, cayley_init
+#from initialization import henaff_init_, cayley_init_
+from initialization import *
 
 parser = argparse.ArgumentParser(description='Exponential Layer Copy Task')
 parser.add_argument('--batch_size', type=int, default=128)
@@ -42,9 +43,9 @@ L           = args.L
 device      = torch.device('cuda')
 
 if args.init == "cayley":
-    init = cayley_init
+    init = cayley_init_
 elif args.init == "henaff":
-    init = henaff_init
+    init = henaff_init_
 
 if args.K != "infty":
     args.K = int(args.K)
@@ -59,7 +60,6 @@ elif args.mode == "dtriv":
 elif args.mode == "cayley":
     mode = "static"
     param = cayley_map
-
 
 
 def copying_data(L, K, batch_size):
@@ -97,7 +97,6 @@ class Model(nn.Module):
         else:
             state = (torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device),
                      torch.zeros((inputs.size(0), self.hidden_size), device=inputs.device))
-        print(inputs.size())
         outputs = []
         for input in torch.unbind(inputs, dim=1):
             out_rnn, state = self.rnn(input, state)

@@ -1,61 +1,65 @@
+import torch
 import numpy as np
 import scipy.linalg as la
 
-def henaff_init(n):
-    # without uniformization || with uniformization
-    # with (without terrible results)
-    # with converges to 0 loss stably (without converged to 0 loss)
-    M = np.random.normal(0., 1., size=(n, n))
-    Q, R = la.qr(M)
 
-    # Uniformisation
-    d = np.diag(R, 0)
-    ph = np.sign(d)
-    Q *= ph
-
-    if la.det(Q) < 0.:
-        # Go bijectively from O^-(n) to O^+(n) \iso SO(n)
-        Q[0] *= -1.
-
-    A = la.logm(Q).real
-    A = .5 * (A - A.T)
-    eig = la.eigvals(A).imag
-    eig = eig[::2]
-    if n % 2 == 1:
-        eig = eig[:-1]
-    return create_diag(eig, n)
+def henaff_init_(A):
+    size = A.size(0) // 2
+    diag = A.new(size).uniform_(-np.pi, np.pi)
+    return create_diag_(A, diag)
 
 
-def normal_init_squeeze(n):
-    # Epoch XXX timit 8.01 then exploded to 100
-    # Epoch 70 98.22
-    # Stuck at 0.009
+def cayley_init_(A):
+    size = A.size(0) // 2
+    diag = A.new(size).uniform_(0., np.pi / 2.)
+    diag = -torch.sqrt((1. - torch.cos(diag))/(1. + torch.cos(diag)))
+    return create_diag_(A, diag)
 
-    # Initialization of skew-symmetric matrix
-    s = np.random.normal(0, np.pi/8., size=int(np.floor(n / 2.)))
-    s = np.fmod(s, np.pi)
-    return create_diag(s, n)
+# We include a few more initializations that could be useful for other problems
+def haar_init_(A):
+    """ Haar initialization on SO(n) """
+    torch.nn.init.orthogonal_(A)
+    with torch.no_grad():
+        if A.det() < 0.:
+            # Go bijectively from O^-(n) to O^+(n) \iso SO(n)
+            idx = np.random.randint(0, A.size(0))
+            A[idx] *= -1.
+        An = la.logm(A.data.cpu().numpy()).real
+        An = .5 * (An - An.T)
+        A.copy_(torch.tensor(An))
+        return A
 
-def normal_init(n):
-    # Initialization of skew-symmetric matrix
-    s = np.random.normal(0, 1., size=int(np.floor(n / 2.)))
-    s = np.fmod(s, np.pi)
-    return create_diag(s, n)
+
+def haar_diag_init_(A):
+    """ Block-diagonal skew-symmetric matrix with eigenvalues distributed as those from a Haar """
+    haar_init_(A)
+    with torch.no_grad():
+        An = A.data.cpu().numpy()
+        eig = la.eigvals(An).imag
+        eig = eig[::2]
+        if A.size(0) % 2 == 1:
+            eig = eig[:-1]
+        eig = torch.tensor(eig)
+        return create_diag_(A, eig)
 
 
-def henaff_init_(n):
-    # Initialization of skew-symmetric matrix
-    s = np.random.uniform(-np.pi, np.pi, size=int(np.floor(n / 2.)))
-    return create_diag(s, n)
+def normal_squeeze_diag_init_(A):
+    size = A.size(0) // 2
+    diag = A.new(size).normal_(0, 1).fmod_(np.pi/8.)
+    return create_diag_(A, diag)
 
-def cayley_init(n):
-    s = np.random.uniform(0, np.pi/2., size=int(np.floor(n / 2.)))
-    s = -np.sqrt((1.0 - np.cos(s))/(1.0 + np.cos(s)))
-    return create_diag(s, n)
+def normal_diag_init_(A):
+    size = A.size(0) // 2
+    diag = A.new(size).normal_(0, 1).fmod_(np.pi)
+    return create_diag_(A, diag)
 
-def create_diag(s, n):
-    diag = np.zeros(n-1)
-    diag[::2] = s
-    A_init = np.diag(diag, k=1)
+
+def create_diag_(A, diag):
+    n = A.size(0)
+    diag_z = torch.zeros(n-1)
+    diag_z[::2] = diag
+    A_init = torch.diag(diag_z, diagonal=1)
     A_init = A_init - A_init.T
-    return A_init.astype(np.float32)
+    with torch.no_grad():
+        A.copy_(A_init)
+        return A
