@@ -40,7 +40,7 @@ class Parametrization(nn.Module):
     Implements the parametrization of a manifold in terms of a Euclidean space
 
     To use it, subclass it implement the method "retraction" (and optionally "project") when subclassing it.
-    You can find an example below where we implement the Orthogonal class to optimize over the Stiefel manifold using an arbitrary retraction
+    You can find an example in the file `orthogonal.py` where we implement the Orthogonal class to optimize over the Stiefel manifold using an arbitrary retraction
 
     def retraction(self, raw_A, base):
         # raw_A: Square matrix of dimensions max(input_size, output_size) x max(input_size, output_size)
