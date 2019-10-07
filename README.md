@@ -117,4 +117,4 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
 [arxivtriv]: https://arxiv.org/abs/1909.09501
 [arxivcheap]: https://arxiv.org/abs/1901.08428
 [paramtrick]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L112
-[parameters]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L141
+[getparam]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L141
