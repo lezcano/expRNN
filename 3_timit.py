@@ -80,7 +80,7 @@ class Model(nn.Module):
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(n_input, hidden_size)
         else:
-            self.rnn = OrthogonalRNN(n_input, hidden_size, skew_initializer=init, mode=mode, param=param)
+            self.rnn = OrthogonalRNN(n_input, hidden_size, initializer_skew=init, mode=mode, param=param)
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.MSELoss()
 

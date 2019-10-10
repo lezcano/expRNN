@@ -9,7 +9,7 @@ def get_parameters(model):
     def get_parametrized_params(mod):
         nonlocal parametrized_params
         if isinstance(mod, Parametrization):
-            parametrized_params.append(mod._A)
+            parametrized_params.append(mod.A)
 
     def not_in(elem, l):
         return all(elem is not x for x in l)
@@ -39,23 +39,14 @@ class Parametrization(nn.Module):
     """
     Implements the parametrization of a manifold in terms of a Euclidean space
 
-    To use it, subclass it implement the method "retraction" (and optionally "project") when subclassing it.
+    It gives the parametrized matrix through the attribute `B`
+
+    To use it, subclass it and implement the method `retraction` and the method `forward` (and optionally `project`). See the documentation in these methods for details
+
     You can find an example in the file `orthogonal.py` where we implement the Orthogonal class to optimize over the Stiefel manifold using an arbitrary retraction
-
-    def retraction(self, raw_A, base):
-        # raw_A: Square matrix of dimensions max(input_size, output_size) x max(input_size, output_size)
-        # base: Matrix of dimensions output_size x input_size
-        # It returns the retraction that we are using
-        # It usually involves projection raw_A into the tangent space at base, and then computing the retraction
-        # When dealing with Lie groups, raw_A is always projected into the Lie algebra, as an optimization.
-
-    def project(self, base):
-        # This method is OPTIONAL
-        # base: Matrix of dimensions output_size x input_size
-        # It returns the projected base back into the manifold
-
     """
-    def __init__(self, input_size, output_size, initializer, mode):
+
+    def __init__(self, A, base, init_A, init_base, mode):
         """
         initializer: (Tensor) -> Tensor. Initializes inplace the given tensor. It also returns it. Compatible with the initializers in torch.nn.init
 
@@ -67,13 +58,11 @@ class Parametrization(nn.Module):
         super(Parametrization, self).__init__()
         assert mode == "static" or (isinstance(mode, tuple) and len(mode) == 3 and mode[0] == "dynamic")
 
-        self.input_size = input_size
-        self.output_size = output_size
-        self.max_size = max(self.input_size, self.output_size)
-        self._A = nn.Parameter(torch.empty(self.max_size, self.max_size))
-        self.register_buffer("_B", torch.empty(self.input_size, self.output_size, requires_grad=True))
-        self.register_buffer('base', torch.eye(self.max_size))
-        self.initializer = initializer
+        self.A = nn.Parameter(A)
+        self.register_buffer("_B", torch.empty(A.size(), dtype=A.dtype, requires_grad=True))
+        self.register_buffer('base', base)
+        self.init_A = init_A
+        self.init_base = init_base
 
         self.B_updated = False
         self.graph_computed = False
@@ -91,22 +80,20 @@ class Parametrization(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.initializer(self._A)
+        self.init_base(self.base)
+        self.init_A(self.A)
 
 
     def rebase(self):
         with torch.no_grad():
-            self.base = self.retraction(self._A, self.base).data
-            self._A.data.zero_()
+            self.base = self.retraction(self.A.data, self.base.data)
+            self.A.data.zero_()
 
+    @property
     def B(self):
-        """
-        Forward part of the paramtrization trick
-        """
-
         # The first time we enter B, if it's a dynamic parametrization, we update the base
         # This line is the difference between static and dynamic with K = infty
-        if not self.first_base_update and  self.mode == "dynamic":
+        if not self.first_base_update and self.mode == "dynamic":
             self.rebase()
             self.first_base_update = True
 
@@ -123,7 +110,7 @@ class Parametrization(nn.Module):
                 # Calling the gc manually is necessary here to clean the graph.
                 gc.collect()
             # Compute the parametrization B on the manifold and its derivative graph
-            self._B = self.retraction(self._A, self.base)
+            self._B = self.retraction(self.A, self.base)
             # We increment the dynamic trivialization counter whenever we compute B for the first time
             # after a gradient update, this is, whenever self.B_updated == False
             if self.mode == "dynamic" and not self.B_updated:
@@ -149,8 +136,28 @@ class Parametrization(nn.Module):
 
     def backwards_param(self):
         """ Computes the gradients with respect to the parametrization """
-        self._A.grad = torch.autograd.grad([self._B], self._A, grad_outputs=(self._B.grad,))[0]
+        self.A.grad = torch.autograd.grad([self._B], self.A, grad_outputs=(self._B.grad,))[0]
         self.B_updated=False
 
+    def retraction(self, A, base):
+        """
+        It computes r_{base}(A).
+        Notice that A will not always be in the tangent space of our manifold
+          For this reason, we first have to use A to parametrize the tangent space,
+          and then compute the retraction
+        When dealing with Lie groups, raw_A is always projected into the Lie algebra, as an optimization (cf. Section E in the paper)
+        """
+        raise NotImplementedError
+
+    def project(self, base):
+        """
+        This method is OPTIONAL
+        It returns the projected base back into the manifold
+        """
+        raise NotImplementedError
+
     def forward(self, input):
-        return input.matmul(self.B())
+        """
+        It uses the attribute self.B to implement the layer itself (e.g. Linear, CNN, ...)
+        """
+        raise NotImplementedError

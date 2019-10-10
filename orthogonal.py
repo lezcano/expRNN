@@ -6,7 +6,7 @@ from parametrization import Parametrization
 
 class Orthogonal(Parametrization):
     """ Class that implements optimization restricted to the Stiefel manifold """
-    def __init__(self, input_size, output_size, initializer, mode, param):
+    def __init__(self, input_size, output_size, initializer_skew, mode, param):
         """
         mode: "static" or a tuple such that:
                 mode[0] == "dynamic"
@@ -15,12 +15,21 @@ class Orthogonal(Parametrization):
 
         param: A parametrization of in terms of skew-symmetyric matrices
         """
-        super(Orthogonal, self).__init__(input_size, output_size, initializer, mode)
+        max_size = max(input_size, output_size)
+        A = torch.empty(max_size, max_size)
+        base = torch.empty(input_size, output_size)
+        init_base = nn.init.eye_
+        super(Orthogonal, self).__init__(A, base, initializer_skew, init_base, mode)
+        self.input_size = input_size
+        self.output_size = output_size
         self.param = param
 
-    def retraction(self, A_raw, base):
+    def forward(self, input):
+        return input.matmul(self.B)
+
+    def retraction(self, A, base):
         # This could be any parametrization of a tangent space
-        A = A_raw.triu(diagonal=1)
+        A = A.triu(diagonal=1)
         A = A - A.t()
         B = base.mm(self.param(A))
         if self.input_size != self.output_size:
@@ -58,11 +67,11 @@ class modrelu(nn.Module):
 
 
 class OrthogonalRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, skew_initializer, mode, param):
+    def __init__(self, input_size, hidden_size, initializer_skew, mode, param):
         super(OrthogonalRNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.recurrent_kernel = Orthogonal(hidden_size, hidden_size, skew_initializer, mode, param=param)
+        self.recurrent_kernel = Orthogonal(hidden_size, hidden_size, initializer_skew, mode, param=param)
         self.input_kernel = nn.Linear(in_features=self.input_size, out_features=self.hidden_size, bias=False)
         self.nonlinearity = modrelu(hidden_size)
 

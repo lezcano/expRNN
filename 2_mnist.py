@@ -74,7 +74,7 @@ class Model(nn.Module):
         if args.mode == "lstm":
             self.rnn = nn.LSTMCell(1, hidden_size)
         else:
-            self.rnn = OrthogonalRNN(1, hidden_size, skew_initializer=init, mode=mode, param=param)
+            self.rnn = OrthogonalRNN(1, hidden_size, initializer_skew=init, mode=mode, param=param)
 
         self.lin = nn.Linear(hidden_size, n_classes)
         self.loss_func = nn.CrossEntropyLoss()
