@@ -43,7 +43,13 @@ class Orthogonal(Parametrization):
             return U.mm(V.t())
         except RuntimeError:
             # If the svd does not converge, fallback to the (thin) QR decomposition
-            return torch.qr(base, some=True)[0]
+            x = base
+            if base.size(0) < base.size(1):
+                x = base.t()
+            ret = torch.qr(x, some=True).Q
+            if base.size(0) < base.size(1):
+                ret = ret.t()
+            return ret
 
 
 class modrelu(nn.Module):
