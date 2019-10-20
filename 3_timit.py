@@ -6,7 +6,7 @@ import datetime
 
 from parametrization import parametrization_trick, get_parameters
 from orthogonal import OrthogonalRNN
-from trivializations import cayley_map, expm_skew
+from trivializations import cayley_map, expm
 from initialization import henaff_init_, cayley_init_
 from timit_loader import TIMIT
 
@@ -53,12 +53,12 @@ if args.K != "infty":
     args.K = int(args.K)
 if args.mode == "exprnn":
     mode = "static"
-    param = expm_skew
+    param = expm
 elif args.mode == "dtriv":
     # We use 100 as the default to project back to the manifold.
     # This parameter does not really affect the convergence of the algorithms, even for K=1
     mode = ("dynamic", args.K, 100)
-    param = expm_skew
+    param = expm
 elif args.mode == "cayley":
     mode = "static"
     param = cayley_map

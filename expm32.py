@@ -186,7 +186,7 @@ class _ExpmPadeHelper(object):
         return U, V
 
 
-def expm(A):
+def expm32(A):
     """
     Compute the matrix exponential using Pade approximation.
 
@@ -303,7 +303,7 @@ def _ell(A, m):
     alpha = A_abs_onenorm / (_onenorm(A) * abs_c_recip)
     return max(int(np.ceil(np.log2(alpha/u) / (2 * m))), 0)
 
-def expm_frechet(A, E):
+def expm_frechet(A, E, expm):
     n = A.size(0)
     M = torch.zeros(2*n, 2*n, dtype=A.dtype, device=A.device, requires_grad=False)
     M[:n, :n] = A
