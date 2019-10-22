@@ -78,7 +78,7 @@ class Parametrization(nn.Module):
     def reset_parameters(self):
         self.init_base(self.base)
         self.init_A(self.A)
-        self.update_B()
+        self._B = self.compute_B()
         if self.mode == "dynamic":
             self.rebase()
         # We have to do this, because apparently retain_gradient does not work during initialisation
@@ -91,17 +91,18 @@ class Parametrization(nn.Module):
             self.base.data.copy_(self._B.data)
             self.A.data.zero_()
 
-    def update_B(self):
+    def compute_B(self):
         # Compute the parametrization B on the manifold and its forward graph
-        self._B = self.retraction(self.A, self.base)
+        ret = self.retraction(self.A, self.base)
         # Now it's not a leaf tensor at the moment, so we convert it into a leaf
-        self._B.requires_grad_()
-        self._B.retain_grad()
+        ret.requires_grad_()
+        ret.retain_grad()
+        return ret
 
     @property
     def B(self):
         if not hasattr(self, "_B"):
-            self.update_B()
+            self._B = self.compute_B()
 
             # Increment the counters
             if self.mode == "dynamic":
@@ -127,7 +128,7 @@ class Parametrization(nn.Module):
         # If that is the case, we recompute the graph
         if not self._B.grad_fn:
             grads = self._B.grad
-            self.update_B()
+            self._B = self.compute_B()
             self._B.grad = grads
 
         self.A.grad = torch.autograd.grad([self._B], self.A, grad_outputs=(self._B.grad,))[0]
