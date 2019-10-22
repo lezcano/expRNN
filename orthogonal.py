@@ -23,6 +23,8 @@ class Orthogonal(Parametrization):
         self.input_size = input_size
         self.output_size = output_size
         self.param = param
+        # We have to call this method to initialise the parameters
+        self.reset_parameters()
 
     def forward(self, input):
         return input.matmul(self.B)
