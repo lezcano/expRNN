@@ -23,15 +23,24 @@ def parametrization_trick(model, loss):
     """ Monkey patching """
     backward = loss.backward
     def new_backward(*args, **kwargs):
+        retain_graph_old = kwargs.get("retain_graph", False)
+        if retain_graph_old == True:
+            print("Warning: retain_graph == True. You should call gc.collect() after you have finished dealing with the graph!")
         kwargs["retain_graph"] = True
-        backward(*args, **kwargs)
 
         # Creates a hook such that, after executing loss.backward(), the gradients
         # with respect to the parametrization are computed
         def _backwards_param(mod):
             if isinstance(mod, Parametrization):
                 mod.backwards_param()
+
+        backward(*args, **kwargs)
         model.apply(_backwards_param)
+
+        # Calling the gc manually is necessary here to clean the graph after setting retain_graph = True
+        if retain_graph_old == False:
+            gc.collect()
+
     loss.backward = new_backward
     return loss
 
@@ -127,17 +136,14 @@ class Parametrization(nn.Module):
         # This can happen when self.B was called within a torch.no_grad() context (e.g. Validation/Evaluation)
         # If that is the case, we recompute the graph
         if not self._B.grad_fn:
-            grads = self._B.grad
+            grad = self._B.grad
             self._B = self.compute_B()
-            self._B.grad = grads
+            self._B.grad = grad
 
         self.A.grad = torch.autograd.grad([self._B], self.A, grad_outputs=(self._B.grad,))[0]
 
-        # This is necessary becuase we are using retain_graph in the backwards function for efficiency
-        # self._B will be computed again whenever self.B is called
+        # We get rid of _B, as it is dirty. _B will be computed again whenever self.B is called
         del self._B
-        # Calling the gc manually is necessary here to clean the graph.
-        gc.collect()
 
     def retraction(self, A, base):
         """
