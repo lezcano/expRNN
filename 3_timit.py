@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import datetime
 
-from parametrization import parametrization_trick, get_parameters
+from parametrization import parameters_updated, get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm
 from initialization import henaff_init_, cayley_init_
@@ -99,11 +99,7 @@ class Model(nn.Module):
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y, len_batch):
-        l = masked_loss(self.loss_func, logits, y, len_batch)
-        if isinstance(self.rnn, OrthogonalRNN):
-            return parametrization_trick(model=self, loss=l)
-        else:
-            return l
+        return masked_loss(self.loss_func, logits, y, len_batch)
 
 
 def main():
@@ -156,6 +152,7 @@ def main():
             optim.step()
             if optim_orth:
                 optim_orth.step()
+                parameters_updated(model)
 
             processed += len(batch_x)
             step += 1

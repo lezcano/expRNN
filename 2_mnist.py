@@ -5,7 +5,7 @@ import argparse
 import sys
 from torchvision import datasets, transforms
 
-from parametrization import parametrization_trick, get_parameters
+from parametrization import parameters_updated, get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm
 from initialization import henaff_init_, cayley_init_
@@ -96,11 +96,7 @@ class Model(nn.Module):
         return self.lin(state)
 
     def loss(self, logits, y):
-        l = self.loss_func(logits, y)
-        if isinstance(self.rnn, OrthogonalRNN):
-            return parametrization_trick(model=self, loss=l)
-        else:
-            return l
+        return self.loss_func(logits, y)
 
     def correct(self, logits, y):
         return torch.eq(torch.argmax(logits, dim=1), y).float().sum()
@@ -147,6 +143,7 @@ def main():
             optim.step()
             if optim_orth:
                 optim_orth.step()
+                parameters_updated(model)
 
             with torch.no_grad():
                 correct = model.correct(logits, batch_y)

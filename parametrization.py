@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import gc
 
 
 def get_parameters(model):
@@ -19,30 +18,11 @@ def get_parameters(model):
     return unconstrained_params, parametrized_params
 
 
-def parametrization_trick(model, loss):
-    """ Monkey patching """
-    backward = loss.backward
-    def new_backward(*args, **kwargs):
-        retain_graph_old = kwargs.get("retain_graph", False)
-        if retain_graph_old == True:
-            print("Warning: retain_graph == True. You should call gc.collect() after you have finished dealing with the graph!")
-        kwargs["retain_graph"] = True
-
-        # Creates a hook such that, after executing loss.backward(), the gradients
-        # with respect to the parametrization are computed
-        def _backwards_param(mod):
-            if isinstance(mod, Parametrization):
-                mod.backwards_param()
-
-        backward(*args, **kwargs)
-        model.apply(_backwards_param)
-
-        # Calling the gc manually is necessary here to clean the graph after setting retain_graph = True
-        if retain_graph_old == False:
-            gc.collect()
-
-    loss.backward = new_backward
-    return loss
+def parameters_updated(model):
+    def del_b(mod):
+        if isinstance(mod, Parametrization):
+            del mod._B
+    model.apply(del_b)
 
 
 class Parametrization(nn.Module):
@@ -104,17 +84,17 @@ class Parametrization(nn.Module):
         # Compute the parametrization B on the manifold and its forward graph
         ret = self.retraction(self.A, self.base)
         # Now it's not a leaf tensor at the moment, so we convert it into a leaf
-        ret.requires_grad_()
         ret.retain_grad()
         return ret
 
     @property
     def B(self):
-        if not hasattr(self, "_B"):
+        if not hasattr(self, "_B") or (not self._B.grad_fn and torch.is_grad_enabled()):
+            has_B = hasattr(self, "_B")
             self._B = self.compute_B()
 
             # Increment the counters
-            if self.mode == "dynamic":
+            if self.mode == "dynamic" and not has_B:
                 if self.K != "infty":
                     # Change the basis after K optimization steps
                     self.k = (self.k + 1) % self.K
@@ -129,21 +109,6 @@ class Parametrization(nn.Module):
                                     self.base.copy_(self.project(self.base))
 
         return self._B
-
-    def backwards_param(self):
-        """ Computes the gradients with respect to the parametrization """
-        # It may happen that, although B is updated, its forward pass graph has not been computed
-        # This can happen when self.B was called within a torch.no_grad() context (e.g. Validation/Evaluation)
-        # If that is the case, we recompute the graph
-        if not self._B.grad_fn:
-            grad = self._B.grad
-            self._B = self.compute_B()
-            self._B.grad = grad
-
-        self.A.grad = torch.autograd.grad([self._B], self.A, grad_outputs=(self._B.grad,))[0]
-
-        # We get rid of _B, as it is dirty. _B will be computed again whenever self.B is called
-        del self._B
 
     def retraction(self, A, base):
         """

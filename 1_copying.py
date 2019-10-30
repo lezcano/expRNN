@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 import argparse
 
-from parametrization import parametrization_trick, get_parameters
+from parametrization import parameters_updated, get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm
 #from initialization import henaff_init_, cayley_init_
@@ -106,9 +106,8 @@ class Model(nn.Module):
         return torch.stack(outputs, dim=1)
 
     def loss(self, logits, y):
-        l = self.loss_func(logits.view(-1, 9), y.view(-1))
-        # If the model does not have any OrthogonalRNN (or any Parametrization object) this is is a noop
-        return parametrization_trick(model=self, loss=l)
+        return self.loss_func(logits.view(-1, 9), y.view(-1))
+
 
     def accuracy(self, logits, y):
         return torch.eq(torch.argmax(logits, dim=2), y).float().mean()
@@ -161,6 +160,7 @@ def main():
         optim.step()
         if optim_orth:
             optim_orth.step()
+            parameters_updated(model)
 
         with torch.no_grad():
             accuracy = model.accuracy(logits, batch_y)
