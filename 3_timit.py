@@ -143,7 +143,6 @@ def main():
             loss = model.loss(logits, batch_y, len_batch)
 
             optim.zero_grad()
-            # Zeroing out the optim_orth is not really necessary, but we do it for consistency
             if optim_orth:
                 optim_orth.zero_grad()
 
