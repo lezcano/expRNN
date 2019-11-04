@@ -87,7 +87,7 @@ class Parametrization(nn.Module):
                     # It's optional to implement this method
                     if self.m == 0 and hasattr(self, "project"):
                         with torch.no_grad():
-                            self.base.copy_(self.project(self.base))
+                            self.base = self.project(self.base)
                 # Change the basis after K optimization steps
                 # Increment the counter afterwards as we change the basis in the first iteration
                 if self.K != "infty":
