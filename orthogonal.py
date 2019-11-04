@@ -18,13 +18,18 @@ class Orthogonal(Parametrization):
         max_size = max(input_size, output_size)
         A = torch.empty(max_size, max_size)
         base = torch.empty(input_size, output_size)
-        init_base = nn.init.eye_
-        super(Orthogonal, self).__init__(A, base, initializer_skew, init_base, mode)
+        super(Orthogonal, self).__init__(A, base, mode)
         self.input_size = input_size
         self.output_size = output_size
         self.param = param
-        # We have to call this method to initialise the parameters
+        self.init_A = initializer_skew
+        self.init_base = nn.init.eye_
+
         self.reset_parameters()
+
+    def reset_parameters(self):
+        self.init_A(self.A)
+        self.init_base(self.base)
 
     def forward(self, input):
         return input.matmul(self.B)

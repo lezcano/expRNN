@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import datetime
 
-from parametrization import parameters_updated, get_parameters
+from parametrization import get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm
 from initialization import henaff_init_, cayley_init_
@@ -152,7 +152,6 @@ def main():
             optim.step()
             if optim_orth:
                 optim_orth.step()
-                parameters_updated(model)
 
             processed += len(batch_x)
             step += 1

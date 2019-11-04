@@ -18,13 +18,6 @@ def get_parameters(model):
     return unconstrained_params, parametrized_params
 
 
-def parameters_updated(model):
-    def del_b(mod):
-        if isinstance(mod, Parametrization):
-            del mod._B
-    model.apply(del_b)
-
-
 class Parametrization(nn.Module):
     """
     Implements the parametrization of a manifold in terms of a Euclidean space
@@ -36,10 +29,8 @@ class Parametrization(nn.Module):
     You can find an example in the file `orthogonal.py` where we implement the Orthogonal class to optimize over the Stiefel manifold using an arbitrary retraction
     """
 
-    def __init__(self, A, base, init_A, init_base, mode):
+    def __init__(self, A, base, mode):
         """
-        initializer: (Tensor) -> Tensor. Initializes inplace the given tensor. It also returns it. Compatible with the initializers in torch.nn.init
-
         mode: "static" or a tuple such that:
                 mode[0] == "dynamic"
                 mode[1]: int, K, the number of steps after which we should change the basis of the dyn triv
@@ -51,8 +42,9 @@ class Parametrization(nn.Module):
         self.A = nn.Parameter(A)
         self.register_buffer("_B", torch.empty(A.size(), dtype=A.dtype, requires_grad=True))
         self.register_buffer('base', base)
-        self.init_A = init_A
-        self.init_base = init_base
+        # This is necessary, as it will be generated again the first time that self.B is called
+        # We still need to register the buffer though
+        del self._B
 
         if mode == "static":
             self.mode = mode
@@ -63,16 +55,13 @@ class Parametrization(nn.Module):
             self.k = 0
             self.m = 0
 
-
-    def reset_parameters(self):
-        self.init_base(self.base)
-        self.init_A(self.A)
-        self._B = self.compute_B()
-        if self.mode == "dynamic":
-            self.rebase()
-        # We have to do this, because apparently retain_gradient does not work during initialisation
-        # self._B will be recomputed the first time that self.B is called
-        del self._B
+        # This implements the parametrization trick in a rather slick way.
+        # We put a hook on A, such that, whenever its gradients are computed, we delete _B
+        # so that it has to be recomputed the next time that self.B is accessed
+        def hook(grad):
+            nonlocal self
+            del self._B
+        self.A.register_hook(hook)
 
 
     def rebase(self):
@@ -80,33 +69,33 @@ class Parametrization(nn.Module):
             self.base.data.copy_(self._B.data)
             self.A.data.zero_()
 
-    def compute_B(self):
-        # Compute the parametrization B on the manifold and its forward graph
-        ret = self.retraction(self.A, self.base)
-        # Now it's not a leaf tensor at the moment, so we convert it into a leaf
-        ret.retain_grad()
-        return ret
-
     @property
     def B(self):
-        if not hasattr(self, "_B") or (not self._B.grad_fn and torch.is_grad_enabled()):
-            has_B = hasattr(self, "_B")
-            self._B = self.compute_B()
+        has_B = hasattr(self, "_B")
+        if not has_B or (not self._B.grad_fn and torch.is_grad_enabled()):
+            self._B = self.retraction(self.A, self.base)
+            # Now self._B it's not a leaf tensor, so we convert it into a leaf
+            self._B.retain_grad()
 
-            # Increment the counters
+            # Increment the counters for the dyntriv algorithm
             if self.mode == "dynamic" and not has_B:
+                if self.k == 0:
+                    self.rebase()
+                    # Project the base back to the manifold every M changes of base
+                    # Increment the counter before as we don't project the first time
+                    self.m = (self.m + 1) % self.M
+                    # It's optional to implement this method
+                    if self.m == 0 and hasattr(self, "project"):
+                        with torch.no_grad():
+                            self.base.copy_(self.project(self.base))
+                # Change the basis after K optimization steps
+                # Increment the counter afterwards as we change the basis in the first iteration
                 if self.K != "infty":
-                    # Change the basis after K optimization steps
                     self.k = (self.k + 1) % self.K
+                else:
+                    # Make sure that we just update the base once
                     if self.k == 0:
-                        self.rebase()
-                        # Project the base back to the manifold every M changes of base
-                        self.m = (self.m + 1) % self.M
-                        if self.m == 0:
-                            # It's optional to implement this method
-                            if hasattr(self, "project"):
-                                with torch.no_grad():
-                                    self.base.copy_(self.project(self.base))
+                        self.k = 1
 
         return self._B
 

@@ -22,12 +22,8 @@ This class can serve as an example for how to use the `Parametrization` class to
 
 ### Optimization step and general recommendations
 
-To optimize with orthogonal constraints we need two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the parametrized parameters to be optimized (skew-symmetric in this case) and non orthogonal parameters (cf. [line 139 in `1_copying.py`][getparam]). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+To optimize with orthogonal constraints we recommend having two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the constrained parameters to be optimized (skew-symmetric in this case) and the unconstrained parameters (cf. [line 139 in `1_copying.py`][getparam]). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
 
-
-Finally, we just have to use the second helper function, `parameters_updated(model)` which notifies the parametrized classes in the model that the parametrizations should be updated. To use it, just call it after `optim_orth.step()` (cf. [line 163 in `1_copying.py`][paramtrick]) or any other time that you update the parametrized weights of your model manually.
-
-These are the only two things that are needed to perform optimization with orthogonal constraints in your neural network.
 
 ## General manifold constraints
 The framework presented in the paper "Trivializations for Gradient-Based Optimization on Manifolds" allows to put orthogonal constraints in any given manifold through the use of dynamic parametrizations. In order to create your own, just follow the instructions detailed at the beginning of the class `Parametrization` in the file `parametrization.py`.
@@ -37,9 +33,9 @@ All one has to do is to implement a class that inherits from it and implements t
 We implemented a class that optimizes over the Stiefel manifold in `orthogonal.py` as an example. This is the class that we also use for the experiments.
 
 ## A note on the papers
-- For the researcher who is mostly interested in the idea and how to implement it in their experiments, a reading order of the papers could be: [`Sections 1, 3.1, 3.2, 4`][arxivcheap] of the Cheap paper, and then [`Sections 1, 5, 6, E`][arxivtriv] of the Trivializations paper. 
+- For the researcher who is mostly interested in the idea and how to implement it in their experiments, a reading order of the papers could be: [`Sections 1, 3.1, 3.2, 4`][arxivcheap] of the Cheap paper, and then [`Sections 1, 5, 6, E`][arxivtriv] of the Trivializations paper.
 
-- The NeurIPS paper "Trivializations for Gradient-Based Optimization on Manifolds" is a far reaching generalization of the paper "Cheap Orthogonal Constraints in Neural Networks". As such, some parts of the paper are more abstract, as they are more general. We recommend the interested reader to start reading the ICML paper, and just then, go for the NeurIPS paper. 
+- The NeurIPS paper "Trivializations for Gradient-Based Optimization on Manifolds" is a far reaching generalization of the paper "Cheap Orthogonal Constraints in Neural Networks". As such, some parts of the paper are more abstract, as they are more general. We recommend the interested reader to start reading the ICML paper, and just then, go for the NeurIPS paper.
 
 - In both papers, there are certain sections in the appendix that are more technical. These sections are not necessary for the implementation of the algorithms.
 
