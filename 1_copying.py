@@ -6,8 +6,7 @@ import argparse
 from parametrization import get_parameters
 from orthogonal import OrthogonalRNN
 from trivializations import cayley_map, expm
-#from initialization import henaff_init_, cayley_init_
-from initialization import *
+from initialization import henaff_init_, cayley_init_
 
 parser = argparse.ArgumentParser(description='Exponential Layer Copy Task')
 parser.add_argument('--batch_size', type=int, default=128)

@@ -22,7 +22,7 @@ This class can serve as an example for how to use the `Parametrization` class to
 
 ### Optimization step and general recommendations
 
-To optimize with orthogonal constraints we recommend having two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the constrained parameters to be optimized (skew-symmetric in this case) and the unconstrained parameters (cf. [line 139 in `1_copying.py`][getparam]). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
+To optimize with orthogonal constraints we recommend having two optimizers, one for the orthogonal parameters and one for the non orthogonal. We provide a convenience function called `get_parameters` that, given a model, it returns the constrained parameters to be optimized (skew-symmetric in this case) and the unconstrained parameters (cf. [line 138 in `1_copying.py`][getparam]). In the conext of RNNs, we noticed empirically that having the lerning rate of the non-orthogonal parameters to be 10 times that of the orthogonal parameters yields the best performance.
 
 
 ## General manifold constraints
@@ -112,5 +112,4 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
 
 [arxivtriv]: https://arxiv.org/abs/1909.09501
 [arxivcheap]: https://arxiv.org/abs/1901.08428
-[paramtrick]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L163
-[getparam]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L139
+[getparam]: https://github.com/Lezcano/expRNN/blob/master/1_copying.py#L138
