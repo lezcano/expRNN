@@ -54,7 +54,7 @@ if args.mode == "exprnn":
 elif args.mode == "dtriv":
     # We use 100 as the default to project back to the manifold.
     # This parameter does not really affect the convergence of the algorithms, even for K=1
-    mode = ("dynamic", args.K, 100)
+    mode = ("dynamic", args.K, 30)
     param = expm
 elif args.mode == "cayley":
     mode = "static"

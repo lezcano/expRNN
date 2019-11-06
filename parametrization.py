@@ -40,11 +40,10 @@ class Parametrization(nn.Module):
         assert mode == "static" or (isinstance(mode, tuple) and len(mode) == 3 and mode[0] == "dynamic")
 
         self.A = nn.Parameter(A)
-        self.register_buffer("_B", torch.empty(A.size(), dtype=A.dtype, requires_grad=True))
+        self.register_buffer("_B", None)
         self.register_buffer('base', base)
         # This is necessary, as it will be generated again the first time that self.B is called
         # We still need to register the buffer though
-        del self._B
 
         if mode == "static":
             self.mode = mode
@@ -56,11 +55,12 @@ class Parametrization(nn.Module):
             self.m = 0
 
         # This implements the parametrization trick in a rather slick way.
-        # We put a hook on A, such that, whenever its gradients are computed, we delete _B
-        # so that it has to be recomputed the next time that self.B is accessed
+        # We put a hook on A, such that, whenever its gradients are computed, we
+        #  get rid of self._B so that it has to be recomputed the next time that
+        #  self.B is accessed
         def hook(grad):
             nonlocal self
-            del self._B
+            self._B = None
         self.A.register_hook(hook)
 
 
@@ -71,14 +71,16 @@ class Parametrization(nn.Module):
 
     @property
     def B(self):
-        has_B = hasattr(self, "_B")
-        if not has_B or (not self._B.grad_fn and torch.is_grad_enabled()):
+        not_B = self._B is None
+        if not_B or (not self._B.grad_fn and torch.is_grad_enabled()):
             self._B = self.retraction(self.A, self.base)
+            # Just to be safe
+            self._B.requires_grad_()
             # Now self._B it's not a leaf tensor, so we convert it into a leaf
             self._B.retain_grad()
 
-            # Increment the counters for the dyntriv algorithm
-            if self.mode == "dynamic" and not has_B:
+            # Increment the counters for the dyntriv algorithm if we have generated B
+            if self.mode == "dynamic" and not_B:
                 if self.k == 0:
                     self.rebase()
                     # Project the base back to the manifold every M changes of base
