@@ -2,9 +2,9 @@
 
 Code and Experiments of the papers:
 
-"[Trivializations for Gradient-Based Optimization on Manifolds][arxivtriv]" NeurIPS 2019
+[Trivializations for Gradient-Based Optimization on Manifolds][arxivtriv] - NeurIPS 2019
 
-"[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap]" ICML 2019
+[Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group][arxivcheap] - ICML 2019
 
 ## Start putting orthogonal constraints in your code
 
@@ -98,7 +98,7 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
     @inproceedings{lezcano2019trivializations,
         title = {Trivializations for Gradient-Based Optimization on Manifolds},
         author = {Lezcano-Casado, Mario},
-        booktitle = {Advances in Neural Information Processing Systems 32},
+        booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
         pages = {9154--9164},
         year = {2019},
     }
@@ -106,7 +106,7 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
     @inproceedings{lezcano2019cheap,
       title={Cheap Orthogonal Constraints in Neural Networks: A Simple Parametrization of the Orthogonal and Unitary Group},
       author={Lezcano-Casado, Mario and Mart{\'i}nez-Rubio, David},
-      booktitle={International Conference on Machine Learning},
+      booktitle={International Conference on Machine Learning (ICML)},
       pages={3794--3803},
       year={2019}
     }
