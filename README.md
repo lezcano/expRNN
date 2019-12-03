@@ -96,10 +96,11 @@ Run this script to save the dataset in a format that can be loaded by the TIMIT 
 ## Cite this work
 
     @inproceedings{lezcano2019trivializations,
-      title={Trivializations for Gradient-Based Optimization on Manifolds},
-      author={Lezcano-Casado, Mario}
-      booktitle={Neural Information Processing Systems},
-      year={2019}
+        title = {Trivializations for Gradient-Based Optimization on Manifolds},
+        author = {Lezcano-Casado, Mario},
+        booktitle = {Advances in Neural Information Processing Systems 32},
+        pages = {9154--9164},
+        year = {2019},
     }
 
     @inproceedings{lezcano2019cheap,
