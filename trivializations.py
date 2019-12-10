@@ -1,6 +1,6 @@
 import torch
 
-from expm32 import expm32, expm_frechet
+from expm32 import expm32, differential
 
 def cayley_map(X):
     n = X.size(0)
@@ -16,6 +16,6 @@ class expm_class(torch.autograd.Function):
     @staticmethod
     def backward(ctx, G):
         (A,) = ctx.saved_tensors
-        return expm_frechet(A.t(), G, expm32)
+        return differential(expm32, A.t(), G)
 
 expm = expm_class.apply

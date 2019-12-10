@@ -303,10 +303,11 @@ def _ell(A, m):
     alpha = A_abs_onenorm / (_onenorm(A) * abs_c_recip)
     return max(int(np.ceil(np.log2(alpha/u) / (2 * m))), 0)
 
-def expm_frechet(A, E, expm):
+def differential(f, A, E):
+    """ Computes the differential of f at A when acting on E:  (df)_A(E) """
     n = A.size(0)
     M = torch.zeros(2*n, 2*n, dtype=A.dtype, device=A.device, requires_grad=False)
     M[:n, :n] = A
     M[n:, n:] = A
     M[:n, n:] = E
-    return expm(M)[:n, n:]
+    return f(M)[:n, n:]
