@@ -17,7 +17,7 @@ class Orthogonal(Parametrization):
         """
         max_size = max(input_size, output_size)
         A = torch.empty(max_size, max_size)
-        base = torch.empty(input_size, output_size)
+        base = torch.empty(max_size, max_size)
         super(Orthogonal, self).__init__(A, base, mode)
         self.input_size = input_size
         self.output_size = output_size
