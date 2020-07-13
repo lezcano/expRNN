@@ -1,3 +1,9 @@
+# This repository has been superseded by the library GeoTorch, which offers a much more flexible approach and many more manifolds implemented
+
+https://github.com/Lezcano/geotorch
+
+This repository will stay here to host the code to reproduce the two papers. If you are looking to use the functionality, please look at GeoTorch's repository.
+
 # Dynamic Trivializations: Optimization on manifolds made simple (Orthogonal, Positive Definite, Positive determinant...)
 
 Code and Experiments of the papers:
