@@ -1,4 +1,4 @@
-# This repository has been superseded by the library GeoTorch, which offers a much more flexible approach and many more manifolds implemented
+# This repository has been superseded by the library GeoTorch, which offers a much more flexible approach and has many more manifolds implemented
 
 https://github.com/Lezcano/geotorch
 
